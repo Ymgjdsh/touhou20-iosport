@@ -1,0 +1,47 @@
+#pragma once
+// Xcode 14 ships the C++17 resource interface under experimental only. Use its
+// allocator semantics, while defining the missing resource singletons locally:
+// iOS 14 must not link to newer libc++ PMR runtime symbols.
+#include <experimental/memory_resource>
+#include <atomic>
+#include <new>
+#include <vector>
+#include <string>
+#include <list>
+#include <forward_list>
+namespace th20::ios::pmr_detail {
+class NewDeleteResource final : public std::experimental::pmr::memory_resource {
+    void* do_allocate(std::size_t bytes, std::size_t alignment) override {
+        if (alignment <= alignof(std::max_align_t)) return ::operator new(bytes);
+        return ::operator new(bytes, std::align_val_t(alignment));
+    }
+    void do_deallocate(void* p, std::size_t, std::size_t alignment) override {
+        if (alignment <= alignof(std::max_align_t)) ::operator delete(p);
+        else ::operator delete(p, std::align_val_t(alignment));
+    }
+    bool do_is_equal(const memory_resource& other) const noexcept override {return this == &other;}
+};
+inline NewDeleteResource& builtin() {static NewDeleteResource value; return value;}
+inline std::atomic<std::experimental::pmr::memory_resource*>& current() {
+    static std::atomic<std::experimental::pmr::memory_resource*> value{&builtin()}; return value;
+}
+}
+namespace std::experimental::pmr {
+inline memory_resource* new_delete_resource() noexcept {return &th20::ios::pmr_detail::builtin();}
+inline memory_resource* get_default_resource() noexcept {return th20::ios::pmr_detail::current().load();}
+inline memory_resource* set_default_resource(memory_resource* value) noexcept {
+    return th20::ios::pmr_detail::current().exchange(value ? value : new_delete_resource());
+}
+}
+// App-local compatibility for the unavailable C++17 spelling in Apple libc++14.
+namespace std::pmr {
+using std::experimental::pmr::memory_resource;
+using std::experimental::pmr::polymorphic_allocator;
+using std::experimental::pmr::new_delete_resource;
+using std::experimental::pmr::get_default_resource;
+using std::experimental::pmr::set_default_resource;
+template<class T> using vector = std::vector<T, polymorphic_allocator<T>>;
+template<class T> using list = std::list<T, polymorphic_allocator<T>>;
+template<class T> using forward_list = std::forward_list<T, polymorphic_allocator<T>>;
+using string = std::basic_string<char, std::char_traits<char>, polymorphic_allocator<char>>;
+}

@@ -1,0 +1,14 @@
+{
+  "assets": [
+    {
+      "name": "th20.dat",
+      "bytes": 150943726,
+      "sha256": "9db8d7c43fbacec95614163d4c3e1d254e82169f8550177ee849831130590494"
+    },
+    {
+      "name": "thbgm.dat",
+      "bytes": 429790784,
+      "sha256": "a067fe223e7c51c50c9fd5356c0521742762ce951f53ff99f8abbcc9b8e9cff0"
+    }
+  ]
+}
