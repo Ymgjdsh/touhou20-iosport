@@ -1,6 +1,8 @@
 # TH20 iOS Port
 
-![TH20 app icon](ios/icons/TH20Icon1024.png)
+<p align="center">
+  <img src="ios/icons/TH20Icon1024.png" alt="TH20 app icon" width="180">
+</p>
 
 An iOS 14+ native port of *Touhou Kinjoukyou: Fossilized Wonders*. The project combines recovered C++ game logic with UIKit and OpenGL ES platform code and does not depend on a browser runtime.
 
@@ -62,7 +64,9 @@ This repository publishes porting code and build tools only. Game data, characte
 
 # TH20 iOS 移植版
 
-![TH20 应用图标](ios/icons/TH20Icon1024.png)
+<p align="center">
+  <img src="ios/icons/TH20Icon1024.png" alt="TH20 应用图标" width="180">
+</p>
 
 这是面向 iOS 14 及以上设备的《东方锦上京》原生移植工程。项目将恢复的 C++ 游戏逻辑与 UIKit、OpenGL ES 平台适配层结合，不依赖浏览器运行时。
 
