@@ -15,6 +15,9 @@
 #include "../text_renderer/centered.hpp"
 #include <cstring>
 #include <string>
+#if defined(TH20_IOS)
+#include "ios_language.h"
+#endif
 #if defined(TH20_WEB)
 #include <emscripten/emscripten.h>
 #endif
@@ -33,6 +36,9 @@ void start(CardInf& o,int spell,const char* name,int duration,int portrait){
     o.info_handles[1]=sprite::spawn_named_animation(sprites,*program_entry::graphics_state.surface_animation,"text",o.view_index+22);
     o.info_handles[2]=sprite::spawn_named_animation(sprites,*text.animation_file,nullptr,1);
     std::string owned_name(name);auto* name_animation=sprite::resolve_animation_handle(sprites,o.info_handles[1]);
+#if defined(TH20_IOS)
+    owned_name=th20::ios::language::spell(spell,name);
+#endif
     text.enqueue_task([&o,name_animation,name=std::move(owned_name)]{
         text::write_centered_animation_text(*program_entry::sprite_controller,*name_animation,0xffffff,0xff000000,4,0,nullptr,[&o]{sprite::execute_animation_interrupt(*program_entry::sprite_controller,o.info_handles[1],4);},name.c_str());
     });

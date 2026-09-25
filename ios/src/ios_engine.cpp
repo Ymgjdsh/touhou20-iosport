@@ -3,6 +3,8 @@
 #include "ios_game_input.h"
 #include "ios_unlock.h"
 #include "ios_cheats.h"
+#include "ios_language.h"
+#include "../../source_reconstruction/text_renderer/native_font.hpp"
 #include "../../source_reconstruction/program_entry/program_entry.hpp"
 #include "../../source_reconstruction/program_entry/unrecovered_dependencies.hpp"
 #include "../../source_reconstruction/program_entry/text_constants.hpp"
@@ -92,6 +94,7 @@ struct Engine {
     }
     bool initialize(const char* resources,const char* saves) {
         th20_ios_configure_paths(resources,saves);
+        th20::ios::language::initialize(resources);
         // Archive and streaming BGM opens retain their recovered relative
         // names. Writable configuration paths are resolved via Documents.
         std::filesystem::current_path(th20_ios_resource_directory());
@@ -183,6 +186,14 @@ int main(int argc,char** argv) {
     callbacks.combat_options=[](void*,bool developer,bool autobomb){th20::ios::cheats::configure(developer,autobomb);};
     callbacks.dev_action=[](void* p,int action){
         return static_cast<Engine*>(p)->running?th20::ios::cheats::perform(action):0;
+    };
+    callbacks.language=[](void* p,int preference){auto& e=*static_cast<Engine*>(p);
+        return guarded(e,"language switch",[&]{
+            if(!e.running)throw std::runtime_error("Game is not ready for a language switch");
+            e.finish_session();th20::source::text::release_native_fonts();
+            th20::ios::language::select(preference);
+            pe::graphics_event_flags&=0xffffff9fu;e.start_session();
+        });
     };
     callbacks.cheat_code=[](void* p,const char* code){
         auto& e=*static_cast<Engine*>(p);if(!e.running)return -1;

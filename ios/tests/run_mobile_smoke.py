@@ -30,9 +30,10 @@ simctl("terminate", simulator, bundle, check=False)
 simctl("install", simulator, app)
 container = Path(simctl("get_app_container", simulator, bundle, "data"))
 docs = container / "Documents"
-for name in ("game-smoke.json", "mobile-settings-probe.json", "smoke-milestone.txt"):
+for name in ("game-smoke.json", "mobile-settings-probe.json", "dev-probe.json", "language-probe.json", "smoke-milestone.txt"):
     (docs / name).unlink(missing_ok=True)
-print(simctl("launch", simulator, bundle), flush=True)
+language_args = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"] if os.environ.get("SIMCTL_CHILD_TH20_LANGUAGE_PROBE") else []
+print(simctl("launch", simulator, bundle, *language_args), flush=True)
 seen = set()
 deadline = time.monotonic() + 1860
 while time.monotonic() < deadline:
@@ -51,7 +52,7 @@ while time.monotonic() < deadline:
             time.sleep(.25)
             continue
         (report / result.name).write_text(json.dumps(outcome, indent=2) + "\n")
-        for name in ("mobile-settings-probe.json", "dev-probe.json"):
+        for name in ("mobile-settings-probe.json", "dev-probe.json", "language-probe.json"):
             settings = docs / name
             if settings.exists():
                 (report / settings.name).write_bytes(settings.read_bytes())

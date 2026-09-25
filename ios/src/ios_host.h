@@ -53,6 +53,7 @@ typedef struct TH20IOSCallbacks {
     int (*cheat_code)(void *userdata, const char *code);
     void (*combat_options)(void *userdata, bool developer, bool autobomb);
     int (*dev_action)(void *userdata, int action);
+    bool (*language)(void *userdata, int preference);
 } TH20IOSCallbacks;
 
 // Call from the real engine's main(). There is deliberately no placeholder main.

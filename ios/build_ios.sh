@@ -16,5 +16,6 @@ cmake -S "$root/ios" -B "$build" -G Xcode \
   -DCMAKE_OSX_ARCHITECTURES="$architecture" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
   -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
   -DTH20_ASSET_DIR="$assets" \
+  -DTH20_TRANSLATION_DIR="${TH20_TRANSLATION_DIR:-}" \
   -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
 cmake --build "$build" --config "$configuration" --target "$target" --parallel 4

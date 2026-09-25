@@ -1,6 +1,9 @@
 #include "resource_manager.hpp"
 #include "../platform_services/services.hpp"
 #include <stdexcept>
+#if defined(TH20_IOS)
+#include "ios_language.h"
+#endif
 namespace th20::source::resources {
 bool Manager::open(const std::filesystem::path& path) {
     close();error_.clear();
@@ -47,6 +50,9 @@ std::string_view archive_lookup_name(std::string_view name) noexcept {
 }
 std::optional<Bytes> read(const char* name,bool loose_only) {
     std::lock_guard<std::recursive_mutex> lock(runtime::shared_locks().slot(2));
+#if defined(TH20_IOS)
+    if(auto translated=th20::ios::language::resource(name))return translated;
+#endif
     if(loose_only)return platform::read_loose_file(name);
     const auto member=archive_lookup_name(name);
     if(!manager().size(member))return std::nullopt;

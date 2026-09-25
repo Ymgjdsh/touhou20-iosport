@@ -1,4 +1,7 @@
 #include "practice.hpp"
+#if defined(TH20_IOS)
+#include "ios_language.h"
+#endif
 #include "practice_data.hpp"
 #include "../pause_system/draw.hpp"
 #include <algorithm>
@@ -48,7 +51,16 @@ int refresh_practice_cards(TitleInf& o,text::Renderer& renderer,const progress::
         }else{
             o.words58d8[3+slot]=static_cast<std::uint32_t>(id);
             char name[193];strcpy_s(name,sizeof(name),reinterpret_cast<const char*>(record));
-            auto length=std::strlen(name);while(length<42)name[length++]=' ';name[length]='\0';
+#if defined(TH20_IOS)
+            const auto translated=th20::ios::language::spell(id,name);
+            strcpy_s(name,sizeof(name),translated.c_str());
+#endif
+            auto length=std::strlen(name);
+#if defined(TH20_IOS)
+            if(th20::ios::language::effective()!=2)
+#endif
+                while(length<42)name[length++]=' ';
+            name[length]='\0';
             const bool unavailable=!attempted(card_record(current,id));
             renderer.color=i==selected?(unavailable?0xff808040:0xffffff00):(unavailable?0xff404040:0xff808080);
             renderer.write_text(position,practice_data::s_00575528,id+1,name);

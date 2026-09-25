@@ -19,6 +19,7 @@
 #include <cstdlib>
 extern "C" int th20_ios_mobile_settings_probe();
 extern "C" int th20_ios_dev_probe();
+extern "C" int th20_ios_language_probe();
 
 namespace {
 namespace pe=th20::source::program_entry;
@@ -77,6 +78,11 @@ void tick(){
     // before the first stage; keep this test-only timeout above that cost.
     if(now-started>1800){finish(false,"timeout before playable stage",gameplay::controller?gameplay::controller->frame_timer.current:-1);return;}
     const auto scene=pe::graphics_state.field_0b08;
+    if(std::getenv("TH20_LANGUAGE_PROBE")){
+        const int result=th20_ios_language_probe();
+        if(result)finish(result>0,"Japanese/Chinese language and resource probe",-1);
+        return;
+    }
     const bool developerProbe=std::getenv("TH20_DEV_PROBE")!=nullptr;
     if(developerProbe){settingsStarted=settingsPassed=true;musicPhase=4;}
     if(settingsStarted&&!settingsPassed){
@@ -161,6 +167,12 @@ void tick(){
 @end
 @implementation TH20NativeSmokeDriver
 + (void)load {
+    if(std::getenv("TH20_LANGUAGE_PROBE")){
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:@"gameLanguage"];
+        // Software GLES on Intel needs a smaller output surface; game logic
+        // and resource/font loading still execute the production paths.
+        [NSUserDefaults.standardUserDefaults setDouble:0.5 forKey:@"renderScale"];
+    }
     [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*){
         if(!smokeTimer&&!finished){
             th20_ios_log("SMOKE test-only driver started; production app does not include this driver");

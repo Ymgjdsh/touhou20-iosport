@@ -34,7 +34,7 @@ target_include_directories(th20_ios_options INTERFACE compat src
 
 # Platform code can be compiled and checked independently of unported runtime
 # layouts. It is never packaged as a replacement game or a successful IPA.
-add_library(th20_ios_platform STATIC src/ios_host.mm src/ios_d3d9.mm src/ios_audio.mm src/ios_platform.mm src/ios_math.cpp)
+add_library(th20_ios_platform STATIC src/ios_host.mm src/ios_d3d9.mm src/ios_audio.mm src/ios_platform.mm src/ios_language.mm src/ios_math.cpp)
 target_link_libraries(th20_ios_platform PUBLIC th20_ios_options)
 target_compile_options(th20_ios_platform PRIVATE -fobjc-arc)
 target_link_libraries(th20_ios_platform PUBLIC
@@ -87,8 +87,9 @@ set_target_properties(th20_ios_game PROPERTIES
   XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
   XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
 set(TH20_ASSET_DIR "" CACHE PATH "Directory containing the original TH20 data archives")
+set(TH20_TRANSLATION_DIR "" CACHE PATH "Optional compiled zh-Hans translation pack")
 add_executable(th20_ios_game_smoke MACOSX_BUNDLE EXCLUDE_FROM_ALL
-  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp src/ios_cheats.cpp tests/game_smoke.mm tests/mobile_settings_probe.mm tests/dev_probe.mm)
+  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp src/ios_cheats.cpp tests/game_smoke.mm tests/mobile_settings_probe.mm tests/dev_probe.mm tests/language_probe.mm)
 target_compile_options(th20_ios_game_smoke PRIVATE -fobjc-arc)
 target_link_libraries(th20_ios_game_smoke PRIVATE th20_ios_platform)
 add_dependencies(th20_ios_game_smoke th20_ios_engine)
@@ -113,5 +114,16 @@ if(TH20_ASSET_DIR)
     target_sources(th20_ios_game PRIVATE "${TH20_ASSET_DIR}/${asset}")
     target_sources(th20_ios_game_smoke PRIVATE "${TH20_ASSET_DIR}/${asset}")
     set_source_files_properties("${TH20_ASSET_DIR}/${asset}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  endforeach()
+endif()
+if(TH20_TRANSLATION_DIR)
+  if(NOT EXISTS "${TH20_TRANSLATION_DIR}/translations.json")
+    message(FATAL_ERROR "Missing compiled translation manifest")
+  endif()
+  file(GLOB translation_files CONFIGURE_DEPENDS "${TH20_TRANSLATION_DIR}/*")
+  foreach(asset IN LISTS translation_files)
+    set_source_files_properties("${asset}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/Translations/zh-Hans")
+    target_sources(th20_ios_game PRIVATE "${asset}")
+    target_sources(th20_ios_game_smoke PRIVATE "${asset}")
   endforeach()
 endif()

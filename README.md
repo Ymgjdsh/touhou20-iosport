@@ -64,6 +64,16 @@ the game disallows bombing, the normal hit applies. Both settings default to
 off; developer actions and Auto Bomb are disabled during replay playback.
 Runs using these features modify gameplay and are intended for practice/testing.
 
+## Game language
+
+Settings → **游戏语言 / ゲーム言語** supports **System / Japanese / Simplified Chinese**.
+First launch follows the system: Chinese locales use Simplified Chinese; other
+locales use Japanese. Manual choices are saved. Switching reloads the title
+screen; in battle it asks before ending the current run and keeps saved records.
+Chinese dialogue, endings, music notes, spell/stone/trophy text and artwork come
+from the user-supplied **thpatch standalone translation dated 2025-09-06**.
+See [translation setup and credits](ios/TRANSLATION.md) for importing the pack.
+
 ## Assets and copyright
 
 This repository publishes porting code and build tools only. Game data, character artwork, music, and other original content remain the property of their respective rights holders. Use only assets you have legally obtained and follow applicable law and the original game's licensing terms.
@@ -73,6 +83,8 @@ This repository publishes porting code and build tools only. Game data, characte
 - [Oracatt/touhou20-web](https://github.com/Oracatt/touhou20-web), for the open-source TH20 recovery, game logic, resource tooling, and web-port foundation contributed to this project.
 - [th07-ios-port](https://github.com/Ymgjdsh/th07-ios-port), for reference mobile build and touch-control patterns.
 - Team Shanghai Alice, for the original game.
+- The thpatch Simplified Chinese community and THBWiki contributors, for the
+  translation and replacement artwork; full attribution is in [translation credits](ios/TRANSLATION.md).
 
 ---
 
@@ -139,6 +151,15 @@ bash ios/build_ios.sh
 不能释放符卡时，正常受击。两个设置默认关闭；播放回放时禁用开发者操作和
 自动符卡。这些功能会改变游戏过程，适用于练习和测试。
 
+## 游戏语言
+
+设置 → **游戏语言 / ゲーム言語**支持**跟随系统／日本語／简体中文**。
+首次启动默认检测系统：中文系统使用简体中文，其余使用日文，手动选择会保存。
+切换后重新载入主菜单；战斗中先询问是否结束当前游戏，保留已保存记录。
+中文对话、结局、音乐说明、符卡、宝石、成就文本和贴图来自用户提供的
+**thpatch 2025-09-06 独立版汉化补丁**。
+导入方法与完整汉化致谢见[语言集成说明](ios/TRANSLATION.md)。
+
 ## 资源与版权
 
 本仓库只发布移植代码和构建工具。游戏数据、角色图像、音乐及其他原作内容的版权归各自权利人所有。请只使用合法取得的资源，并遵守当地法律和原作许可要求。
@@ -148,3 +169,5 @@ bash ios/build_ios.sh
 - [Oracatt/touhou20-web](https://github.com/Oracatt/touhou20-web)：提供 TH20 恢复工程、游戏逻辑、资源工具和网页移植基础。
 - [th07-ios-port](https://github.com/Ymgjdsh/th07-ios-port)：提供移动端构建和触摸控制方面的参考。
 - Team Shanghai Alice：原作游戏的创作者。
+- thpatch 简体中文社区与 THBWiki 等贡献者：提供汉化文本和贴图，
+  完整署名见[汉化致谢](ios/TRANSLATION.md)。

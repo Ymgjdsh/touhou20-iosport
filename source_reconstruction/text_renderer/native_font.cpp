@@ -5,6 +5,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "native_font.hpp"
 #include "ios_host.h"
+#include "ios_language.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -39,6 +40,7 @@ CTFontRef font_at(int font){
 }
 CFStringRef decode(const char* source){
     if(!source)throw std::invalid_argument("Null native text string");
+    if(auto translated=th20::ios::language::copy_text(source))return translated;
     const auto length=std::strlen(source);
     if(length>std::size_t(std::numeric_limits<CFIndex>::max()))throw std::length_error("Native text exceeds CFString capacity");
     auto* string=CFStringCreateWithBytes(kCFAllocatorDefault,reinterpret_cast<const UInt8*>(source),length,
@@ -137,7 +139,9 @@ void initialize_native_fonts(){
     for(unsigned index=0;index<fonts.size();++index){
         if(fonts[index])continue;
         const bool mincho=(index>=13&&index<=17)||index>=20;
-        const auto requested=mincho?CFSTR("HiraMinProN-W6"):CFSTR("HiraginoSans-W3");
+        const auto requested=th20::ios::language::effective()==2?
+            (mincho?CFSTR("SongtiSC-Bold"):CFSTR("PingFangSC-Regular")):
+            (mincho?CFSTR("HiraMinProN-W6"):CFSTR("HiraginoSans-W3"));
         auto font=CTFontCreateWithName(requested,heights[index],nullptr);
         if(!font)throw std::runtime_error("Unable to load native Japanese typeface");
         if(index==11){if(auto bold=CTFontCreateCopyWithSymbolicTraits(font,0,nullptr,kCTFontBoldTrait,kCTFontBoldTrait)){CFRelease(font);font=bold;}}
@@ -156,7 +160,9 @@ void release_native_fonts(){
     for(auto& font:fonts){if(font)CFRelease(font);font=nullptr;}
 }
 NativeTextExtent measure_native_text(const char* cp932,int index){
-    std::lock_guard lock(font_mutex);const auto font=font_at(index);return shape(cp932,index,font)->measured;
+    std::lock_guard lock(font_mutex);const auto font=font_at(index);auto measured=shape(cp932,index,font)->measured;
+    if(th20::ios::language::effective()==2)measured.width=std::min(measured.width,1000);
+    return measured;
 }
 NativeTextExtent raster_native_text(std::uint8_t* output,int pitch,int width,int height,const char* cp932,int index,int spacing,
     std::uint32_t foreground,std::uint32_t background,bool outline,float radius,int x,int top){
@@ -178,7 +184,12 @@ NativeTextExtent raster_native_text(std::uint8_t* output,int pitch,int width,int
     CGContextSetLineJoin(context,kCGLineJoinRound);CGContextSetLineWidth(context,std::max(0.f,radius)*2);
     color(context,foreground,false);color(context,background,true);
     const CGFloat baseline=height-top-CTFontGetAscent(font);
+    const bool translated=th20::ios::language::effective()==2;
+    const CGFloat available=std::max(1,std::min(width-8,1000)-std::max(0,x));
+    const CGFloat horizontalScale=translated&&!spacing&&shaped->measured.width>available?available/shaped->measured.width:1;
+    if(horizontalScale<1)CGContextScaleCTM(context,horizontalScale,1);
     const auto draw=[&](CTLineRef item,CGFloat offset){
+        offset/=horizontalScale;
         if(outline){CGContextSetTextDrawingMode(context,kCGTextStroke);CGContextSetTextPosition(context,offset,baseline);CTLineDraw(item,context);}
         CGContextSetTextDrawingMode(context,kCGTextFill);CGContextSetTextPosition(context,offset,baseline);CTLineDraw(item,context);
     };
@@ -187,7 +198,7 @@ NativeTextExtent raster_native_text(std::uint8_t* output,int pitch,int width,int
         shaped->prepare_characters(font);CGFloat at=x+2;
         for(auto glyph:shaped->characters){draw(glyph,at);at+=spacing;}
         measured.width=std::max(0,int(shaped->characters.size())*spacing);
-    }else draw(shaped->text,x+2);
+    }else{draw(shaped->text,x+2);measured.width=int(std::ceil(measured.width*horizontalScale));}
     CFRelease(context.value);context.value=nullptr;
     // Quartz uses an upward drawing coordinate system, but CGBitmapContext's
     // backing rows already run from the image's top to bottom. The baseline

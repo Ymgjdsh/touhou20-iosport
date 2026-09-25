@@ -3,6 +3,7 @@
 #import <OpenGLES/ES3/gl.h>
 #import <mach/mach.h>
 #include "ios_host.h"
+#include "ios_language.h"
 #include "ios_presentation_layout.h"
 #include <algorithm>
 #include <cmath>
@@ -1145,14 +1146,15 @@ uint64_t residentBytes() {
     UITapGestureRecognizer *back = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(done)];
     back.numberOfTouchesRequired = 2; back.cancelsTouchesInView = YES; [self.tableView addGestureRecognizer:back];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 5; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 6; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    const NSInteger counts[] = {8, 6, 4, 4, 1}; return counts[section];
+    const NSInteger counts[] = {8, 6, 4, 4, 1, 1}; return counts[section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return @[@"操作方式", @"摇杆与按键", @"画面与性能", @"手势与诊断", @"Cheat Code"][section];
+    return @[@"操作方式", @"摇杆与按键", @"画面与性能", @"手势与诊断", @"Cheat Code", @"语言 / 言語"][section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (section == 5) return th20::ios::language::available() ? @"首次启动默认跟随系统：中文系统使用简体中文，其余使用日文。手动选择会保存。切换后重新载入主菜单；战斗中会先询问。\n初回はシステム言語に従います。切替後はタイトルへ戻ります。" : @"此构建未包含汉化资源。中文语言包需在构建时导入。";
     if (section == 0) return @"Hybrid：摇杆或拖动均可移动。Drag：相对拖动。Joystick：仅使用摇杆。No Button 隐藏操作控件，设置入口始终保留。";
     if (section == 1) return @"自由布局分别保存横屏和竖屏位置。左手布局改变默认位置；已自定义的位置以保存结果为准。";
     if (section == 2) return @"横屏和主菜单保持原始比例。竖屏战斗将状态栏移至顶部，战斗区域铺满下方。30 FPS 降低显示频率，游戏逻辑仍以 60 Hz 更新；降低显示清晰度可减少输出画面的开销。";
@@ -1200,6 +1202,13 @@ uint64_t residentBytes() {
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     TH20ViewController *owner = self.owner;
+    if (path.section == 5) {
+        UISegmentedControl *control = [[UISegmentedControl alloc] initWithItems:@[@"系统 / 自動", @"日本語", @"简体中文"]];
+        control.tag = 3; control.selectedSegmentIndex = th20::ios::language::preference();
+        control.enabled = th20::ios::language::available() && self.owner.ready && callbacks.language;
+        [control addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
+        return [self stackCell:@"游戏语言 / ゲーム言語" control:control];
+    }
     if (path.section == 0) {
         switch (path.row) {
             case 0: return [self segmentCell:@"移动模式" items:@[@"Hybrid", @"Drag", @"Joystick"] tag:0 selected:2 - owner.controlMode];
@@ -1270,6 +1279,26 @@ uint64_t residentBytes() {
     th20_ios_log("settings %s=%d", [keys[control.tag] UTF8String], value);
 }
 - (void)segmentChanged:(UISegmentedControl *)control {
+    if (control.tag == 3) {
+        const NSInteger requested = control.selectedSegmentIndex;
+        control.selectedSegmentIndex = th20::ios::language::preference();
+        if (requested == th20::ios::language::preference()) return;
+        void (^apply)(void) = ^{
+            [self.owner clearInput];
+            if (callbacks.language && callbacks.language(callbacks.userdata, (int)requested)) {
+                control.selectedSegmentIndex = requested;
+                self.owner.lastTimestamp = 0; self.owner.accumulator = 0;
+                [self.tableView reloadData]; [self done];
+            }
+        };
+        if (self.owner.combatScene) {
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"切换语言 / 言語切替" message:@"切换会结束当前战斗并返回主菜单，已保存进度会保留。\n現在のプレイを終了してタイトルへ戻ります。保存済みの記録は保持されます。" preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"取消 / キャンセル" style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"切换 / 切替" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){ apply(); }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        } else apply();
+        return;
+    }
     [self.owner clearInput]; NSString *key; NSNumber *value;
     if (control.tag == 0) { self.owner.controlMode = 2 - control.selectedSegmentIndex; key = @"controlMode"; value = @(self.owner.controlMode); }
     else if (control.tag == 1) { self.owner.displayFPS = control.selectedSegmentIndex == 1 ? 30 : 60; key = @"displayFPS"; value = @(self.owner.displayFPS); }

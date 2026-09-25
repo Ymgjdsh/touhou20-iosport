@@ -9,6 +9,10 @@
 #include <algorithm>
 #include <cstdlib>
 #include <string>
+#if defined(TH20_IOS)
+#include "../text_renderer/native_font.hpp"
+#include "ios_language.h"
+#endif
 namespace th20::source::hud {
 namespace {
 auto& sprites(){return environment::sprites();}
@@ -48,7 +52,10 @@ void queue_dialogue_line(Dialogue& d){
             std::lock_guard<std::recursive_mutex> lock(runtime::shared_locks().slot(9));position(d,slot);
         });
     }else{
-        const auto width=recovered::mul32(static_cast<float>((static_cast<std::uint32_t>(value.size())&0x1ffffffeu)*8u-24u),2);
+        auto width=recovered::mul32(static_cast<float>((static_cast<std::uint32_t>(value.size())&0x1ffffffeu)*8u-24u),2);
+#if defined(TH20_IOS)
+        if(th20::ios::language::effective()==2)width=std::max(0.f,float(text::measure_native_text(value.c_str(),font(d)).width)-48.f);
+#endif
         if(!(width<=d.field_134))d.field_134=width;
         const auto type=(d.flags>>2&15u)*3u+d.fields_108[3]+(second?24u:0u);create_dialogue_box(d,d.vector_128.x,d.vector_128.y,d.field_134,type);resize_dialogue_box(d,d.field_134);
         const unsigned slot=second?2:1;auto* animation=sprite::resolve_animation_handle(sprites(),d.handles[slot]);
