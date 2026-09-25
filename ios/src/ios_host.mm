@@ -155,6 +155,16 @@ uint64_t residentBytes() {
 @property(nonatomic) NSInteger controlMode;
 @property(nonatomic) BOOL autoShot;
 @property(nonatomic) BOOL autoSlow;
+@property(nonatomic) BOOL autoBomb;
+@property(nonatomic) BOOL developerMode;
+@property(nonatomic) BOOL devInvincible;
+@property(nonatomic, strong) UIButton *devLauncher;
+@property(nonatomic, strong) UIView *devOverlay;
+@property(nonatomic, strong) UIView *devPanel;
+@property(nonatomic, strong) UIScrollView *devList;
+@property(nonatomic, strong) UILabel *devHeader;
+@property(nonatomic, strong) UILabel *devStatus;
+@property(nonatomic, strong) NSMutableArray<UIButton *> *devButtons;
 @property(nonatomic) float joystickDeadzone;
 @property(nonatomic) float controlHeight;
 @property(nonatomic) NSInteger displayFPS;
@@ -190,6 +200,8 @@ uint64_t residentBytes() {
 - (void)beginLayoutEditing;
 - (NSString *)layoutOrientation;
 - (void)openSettings;
+- (void)syncCombatOptions;
+- (void)closeDeveloper;
 - (BOOL)usesPortraitBattleLayout;
 - (void)exportLogs:(id)sender;
 - (void)stop;
@@ -210,6 +222,30 @@ uint64_t residentBytes() {
 @property(nonatomic, weak) TH20ViewController *owner;
 @property(nonatomic, strong) UITextField *cheatField;
 @property(nonatomic, strong) UILabel *cheatResult;
+@end
+
+// Mineral facets and lacquer/gold borders echo TH20's stone theme. These
+// views use custom drawing and rectangular controls, not a system sheet.
+@interface TH20DevPanel : UIView
+@end
+@implementation TH20DevPanel
+- (void)drawRect:(CGRect)rect {
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+    [[UIColor colorWithRed:0.09 green:0.045 blue:0.12 alpha:0.98] setFill];
+    UIRectFill(self.bounds);
+    for (int i = 0; i < 6; ++i) {
+        CGFloat x = w * i / 5.0;
+        CGContextBeginPath(c); CGContextMoveToPoint(c, x - 70, h);
+        CGContextAddLineToPoint(c, x + 30, h * 0.3); CGContextAddLineToPoint(c, x + 90, h);
+        CGContextClosePath(c);
+        CGContextSetRGBFillColor(c, 0.6, 0.22, 0.4, i % 2 ? 0.13 : 0.07); CGContextFillPath(c);
+    }
+    CGContextSetRGBStrokeColor(c, 0.83, 0.64, 0.38, 1); CGContextSetLineWidth(c, 2);
+    CGContextStrokeRect(c, CGRectInset(self.bounds, 2, 2));
+    CGContextSetRGBStrokeColor(c, 0.7, 0.36, 0.5, 0.8); CGContextSetLineWidth(c, 1);
+    CGContextStrokeRect(c, CGRectInset(self.bounds, 7, 7));
+}
 @end
 
 @implementation TH20Joystick
@@ -404,6 +440,8 @@ uint64_t residentBytes() {
     self.haptics = [defaults boolForKey:@"haptics"];
     self.controlMode = std::clamp([defaults integerForKey:@"controlMode"], NSInteger(0), NSInteger(2));
     self.autoShot = [defaults boolForKey:@"autoShot"]; self.autoSlow = [defaults boolForKey:@"autoSlow"];
+    self.autoBomb = [defaults boolForKey:@"autoBomb"]; self.developerMode = [defaults boolForKey:@"developerMode"];
+    [self syncCombatOptions];
     self.joystickDeadzone = std::clamp([defaults floatForKey:@"joystickDeadzone"], 0.1f, 0.4f);
     self.controlHeight = std::clamp([defaults floatForKey:@"controlHeight"], 0.0f, 0.3f);
     self.displayFPS = [defaults integerForKey:@"displayFPS"] == 30 ? 30 : 60;
@@ -441,6 +479,16 @@ uint64_t residentBytes() {
     UIPanGestureRecognizer *stickDrag = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragLayoutControl:)];
     stickDrag.enabled = NO; [self.joystick addGestureRecognizer:stickDrag];
     [self.view addSubview:self.joystick];
+    self.devLauncher = [UIButton buttonWithType:UIButtonTypeCustom];
+    [self.devLauncher setTitle:@"DEV" forState:UIControlStateNormal];
+    self.devLauncher.titleLabel.font = [UIFont fontWithName:@"Menlo-Bold" size:19];
+    [self.devLauncher setTitleColor:[UIColor colorWithRed:1 green:0.9 blue:0.7 alpha:1] forState:UIControlStateNormal];
+    self.devLauncher.backgroundColor = [UIColor colorWithRed:0.3 green:0.08 blue:0.2 alpha:0.9];
+    self.devLauncher.layer.borderWidth = 1.5;
+    self.devLauncher.layer.borderColor = [UIColor colorWithRed:0.83 green:0.64 blue:0.38 alpha:1].CGColor;
+    self.devLauncher.accessibilityLabel = @"DEV 开发者菜单";
+    [self.devLauncher addTarget:self action:@selector(openDeveloper) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.devLauncher];
     self.performanceLabel = [UILabel new]; self.performanceLabel.userInteractionEnabled = NO;
     self.performanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightMedium];
     self.performanceLabel.textColor = UIColor.whiteColor; self.performanceLabel.numberOfLines = 2;
@@ -541,6 +589,81 @@ uint64_t residentBytes() {
     self.statusPanel.frame = CGRectMake(CGRectGetMidX(safe) - panelW / 2, CGRectGetMidY(safe) - panelH / 2, panelW, panelH);
     self.statusLabel.frame = CGRectMake(16, 16, panelW - 32, panelH - 86);
     self.exportButton.frame = CGRectMake(16, panelH - 64, panelW - 32, 48);
+    self.devLauncher.frame = CGRectMake(CGRectGetMaxX(safe) - 80, CGRectGetMinY(safe) + small + 22, 68, 44);
+    self.devLauncher.hidden = !self.developerMode || !self.combatScene || !self.ready || self.editingLayout || self.fatalError;
+    if (self.devOverlay) {
+        self.devOverlay.frame = bounds;
+        CGFloat width = std::min(CGFloat(420), safe.size.width - 24);
+        CGFloat height = std::min(CGFloat(574), safe.size.height - 16);
+        self.devPanel.frame = CGRectMake(CGRectGetMidX(safe) - width / 2, CGRectGetMidY(safe) - height / 2, width, height);
+        self.devHeader.frame = CGRectMake(18, 14, width - 36, 58);
+        self.devList.frame = CGRectMake(18, 78, width - 36, height - 124);
+        self.devList.contentSize = CGSizeMake(width - 36, self.devButtons.count * 54);
+        for (NSUInteger i = 0; i < self.devButtons.count; ++i)
+            self.devButtons[i].frame = CGRectMake(0, i * 54, width - 36, 47);
+        self.devStatus.frame = CGRectMake(18, height - 41, width - 36, 30);
+        [self.view bringSubviewToFront:self.devOverlay];
+    }
+}
+- (void)syncCombatOptions {
+    if (!self.developerMode) self.devInvincible = NO;
+    if (callbacks.combat_options) callbacks.combat_options(callbacks.userdata, self.developerMode, self.autoBomb);
+    [self.view setNeedsLayout];
+}
+- (void)openDeveloper {
+    if (!self.developerMode || !self.combatScene || !self.ready || self.modalPaused || self.devOverlay) return;
+    [self clearInput]; self.modalPaused = YES; [self applyPausedState];
+    self.devOverlay = [UIView new];
+    self.devOverlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5];
+    [self.view addSubview:self.devOverlay];
+    self.devPanel = [TH20DevPanel new]; self.devPanel.contentMode = UIViewContentModeRedraw;
+    [self.devOverlay addSubview:self.devPanel];
+    self.devHeader = [UILabel new]; self.devHeader.numberOfLines = 2;
+    self.devHeader.text = @"東方錦上京  ◆  DEV\nFOSSILIZED WONDERS";
+    self.devHeader.font = [UIFont fontWithName:@"HiraginoMinchoProN-W6" size:21] ?: [UIFont boldSystemFontOfSize:21];
+    self.devHeader.textAlignment = NSTextAlignmentCenter;
+    self.devHeader.textColor = [UIColor colorWithRed:1 green:0.9 blue:0.7 alpha:1];
+    [self.devPanel addSubview:self.devHeader];
+    self.devList = [UIScrollView new]; self.devList.alwaysBounceVertical = YES;
+    [self.devPanel addSubview:self.devList];
+    self.devButtons = [NSMutableArray new];
+    NSArray *labels = @[@"INVINCIBLE  /  无敌", @"MAX SCORE  /  最高分", @"MAX ITEMS  /  道具最大",
+        @"MAX POWER  /  满火力", @"FULL STOCK  /  满残机·符卡", @"MAX ALL  /  全部最大", @"CLEAR BULLETS  /  清弹", @"CLOSE  /  关闭"];
+    for (NSInteger i = 0; i < labels.count; ++i) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom]; button.tag = i;
+        [button setTitle:i == 0 ? [NSString stringWithFormat:@"INVINCIBLE  /  无敌  %@", self.devInvincible ? @"ON" : @"OFF"] : labels[i] forState:UIControlStateNormal];
+        button.titleLabel.font = [UIFont fontWithName:@"Menlo-Bold" size:17];
+        button.titleLabel.adjustsFontSizeToFitWidth = YES; button.titleLabel.minimumScaleFactor = 0.7;
+        button.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
+        button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+        [button setTitleColor:[UIColor colorWithRed:1 green:0.88 blue:0.81 alpha:1] forState:UIControlStateNormal];
+        [button setTitleColor:UIColor.whiteColor forState:UIControlStateHighlighted];
+        button.backgroundColor = [UIColor colorWithRed:i == 7 ? 0.36 : 0.23 green:0.08 blue:0.22 alpha:0.9];
+        button.layer.borderWidth = 1; button.layer.borderColor = [UIColor colorWithRed:0.72 green:0.4 blue:0.5 alpha:1].CGColor;
+        [button addTarget:self action:@selector(devAction:) forControlEvents:UIControlEventTouchUpInside];
+        [self.devButtons addObject:button]; [self.devList addSubview:button];
+    }
+    self.devStatus = [UILabel new]; self.devStatus.text = @"战斗已暂停 · 关闭菜单继续";
+    self.devStatus.textAlignment = NSTextAlignmentCenter; self.devStatus.numberOfLines = 2;
+    self.devStatus.font = [UIFont systemFontOfSize:12];
+    self.devStatus.textColor = [UIColor colorWithRed:0.88 green:0.74 blue:0.61 alpha:1];
+    [self.devPanel addSubview:self.devStatus]; [self.view setNeedsLayout];
+}
+- (void)devAction:(UIButton *)button {
+    if (button.tag == 7) { [self closeDeveloper]; return; }
+    if (!self.devOverlay || !self.developerMode || !self.combatScene) return;
+    int result = callbacks.dev_action && self.engineAvailable ? callbacks.dev_action(callbacks.userdata, (int)button.tag) : 0;
+    if (button.tag == 0 && result > 0) {
+        self.devInvincible = result == 2;
+        [button setTitle:[NSString stringWithFormat:@"INVINCIBLE  /  无敌  %@", self.devInvincible ? @"ON" : @"OFF"] forState:UIControlStateNormal];
+    }
+    self.devStatus.text = result > 0 ? @"已应用 · 关闭菜单继续战斗" : result == 0 ? @"当前不可用（回放中不启用作弊）" : @"操作失败，请导出诊断日志";
+}
+- (void)closeDeveloper {
+    if (!self.devOverlay) return;
+    [self.devOverlay removeFromSuperview]; self.devOverlay = nil; self.devPanel = nil;
+    self.devList = nil; self.devButtons = nil; self.devHeader = nil; self.devStatus = nil;
+    self.modalPaused = NO; [self applyPausedState];
 }
 - (void)applyDisplaySettings {
     self.displayLink.preferredFramesPerSecond = self.displayFPS;
@@ -936,6 +1059,7 @@ uint64_t residentBytes() {
 }
 - (void)setCombatPresentation:(BOOL)active {
     if (self.combatScene == active) return;
+    if (!active) [self closeDeveloper];
     [self clearInput]; self.combatScene = active;
     // Apply the scene's drawable size before the frame being submitted now;
     // otherwise one portrait frame can be composed into the old menu bounds.
@@ -1023,7 +1147,7 @@ uint64_t residentBytes() {
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 5; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    const NSInteger counts[] = {7, 6, 4, 3, 1}; return counts[section];
+    const NSInteger counts[] = {8, 6, 4, 4, 1}; return counts[section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     return @[@"操作方式", @"摇杆与按键", @"画面与性能", @"手势与诊断", @"Cheat Code"][section];
@@ -1085,6 +1209,7 @@ uint64_t residentBytes() {
             case 4: return [self switchCell:@"S 点击保持低速" detail:@"再点一次恢复高速" tag:2 value:owner.slowToggle];
             case 5: return [self switchCell:@"自动射击" detail:@"进入战斗后自动按住 Z" tag:3 value:owner.autoShot];
             case 6: return [self switchCell:@"自动低速" detail:@"进入战斗后自动按住 S" tag:4 value:owner.autoSlow];
+            case 7: return [self switchCell:@"Auto Bomb / 自动符卡" detail:@"碰撞受击时，在死亡判定与音效前自动释放符卡；消耗现有符卡，无符卡时正常受击。" tag:9 value:owner.autoBomb];
         }
     }
     if (path.section == 1) {
@@ -1106,6 +1231,7 @@ uint64_t residentBytes() {
         }
     }
     if (path.section == 3) {
+        if (path.row == 3) return [self switchCell:@"开发者模式" detail:@"战斗画面显示 DEV 入口：无敌、最高分、道具、火力、残机与符卡、清弹。" tag:10 value:owner.developerMode];
         if (path.row == 0) return [self baseCell:@"Z：射击 / 确认 · X：符卡 / 返回 · S：低速" detail:@"轻点菜单选项直接选择；上下连续滑动切换列表，左右滑动切换分页或数值。对话时轻点画面继续。战斗中双指轻按放符卡、三指长按暂停；菜单和设置中双指轻点返回。"];
         UITableViewCell *cell = [self baseCell:path.row == 1 ? @"导出本次诊断日志" : @"恢复默认设置与按键布局" detail:nil];
         cell.textLabel.textColor = UIColor.systemBlueColor; cell.selectionStyle = UITableViewCellSelectionStyleDefault; return cell;
@@ -1135,10 +1261,11 @@ uint64_t residentBytes() {
 }
 - (void)toggleChanged:(UISwitch *)control {
     [self.owner clearInput];
-    NSArray *keys = @[@"controlsVisible", @"shotToggle", @"slowToggle", @"autoShot", @"autoSlow", @"leftHanded", @"haptics", @"smoothScaling", @"showPerformance"];
+    NSArray *keys = @[@"controlsVisible", @"shotToggle", @"slowToggle", @"autoShot", @"autoSlow", @"leftHanded", @"haptics", @"smoothScaling", @"showPerformance", @"autoBomb", @"developerMode"];
     BOOL value = control.tag == 0 ? !control.on : control.on;
     [self.owner setValue:@(value) forKey:keys[control.tag]];
     [NSUserDefaults.standardUserDefaults setBool:value forKey:keys[control.tag]];
+    [self.owner syncCombatOptions];
     [self.owner updateControlColors]; [self.owner.view setNeedsLayout];
     th20_ios_log("settings %s=%d", [keys[control.tag] UTF8String], value);
 }
@@ -1160,6 +1287,8 @@ uint64_t residentBytes() {
 }
 - (void)restoreDefaults {
     [self.owner clearInput];
+    for (NSString *key in @[@"autoBomb", @"developerMode"]) [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+    self.owner.autoBomb = self.owner.developerMode = NO; [self.owner syncCombatOptions];
     for (NSString *key in @[@"shotToggle", @"slowToggle", @"controlsVisible", @"leftHanded", @"haptics", @"touchSensitivity", @"buttonOpacity", @"buttonSize", @"renderScale", @"controlMode", @"autoShot", @"autoSlow", @"joystickDeadzone", @"controlHeight", @"displayFPS", @"smoothScaling", @"showPerformance", @"customLayoutsV2"])
         [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
     self.owner.shotToggle = self.owner.slowToggle = self.owner.leftHanded = self.owner.haptics = NO;

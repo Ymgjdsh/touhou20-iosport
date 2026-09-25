@@ -74,7 +74,7 @@ target_link_libraries(th20_ios_engine PRIVATE th20_ios_options)
 # Native entry owns initialization and advances the recovered schedulers from
 # UIKit's display callback. Windows message-loop sources never enter this app.
 add_executable(th20_ios_game MACOSX_BUNDLE EXCLUDE_FROM_ALL
-  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp)
+  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp src/ios_cheats.cpp)
 target_link_libraries(th20_ios_game PRIVATE th20_ios_platform)
 add_dependencies(th20_ios_game th20_ios_engine)
 # Xcode hashes object names when modules share filenames. Let its archive
@@ -88,7 +88,7 @@ set_target_properties(th20_ios_game PROPERTIES
   XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
 set(TH20_ASSET_DIR "" CACHE PATH "Directory containing the original TH20 data archives")
 add_executable(th20_ios_game_smoke MACOSX_BUNDLE EXCLUDE_FROM_ALL
-  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp tests/game_smoke.mm tests/mobile_settings_probe.mm)
+  src/ios_engine.cpp src/ios_game_input.cpp src/ios_unlock.cpp src/ios_cheats.cpp tests/game_smoke.mm tests/mobile_settings_probe.mm tests/dev_probe.mm)
 target_compile_options(th20_ios_game_smoke PRIVATE -fobjc-arc)
 target_link_libraries(th20_ios_game_smoke PRIVATE th20_ios_platform)
 add_dependencies(th20_ios_game_smoke th20_ios_engine)

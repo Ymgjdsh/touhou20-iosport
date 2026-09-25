@@ -2,6 +2,9 @@
 #include "owner.hpp"
 #include "../overlay_system/overlay.hpp"
 #include <cstring>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_hit_guard.h"
+#endif
 namespace th20::source::player_entity {
 namespace {
 template<class T>T get(const void* p,std::size_t offset){T value;std::memcpy(&value,static_cast<const std::uint8_t*>(p)+offset,sizeof(value));return value;}
@@ -13,6 +16,9 @@ void add_graze_count(game_session::Player& player,int amount) noexcept{
     if(count<0)count=0;if(count>99999999)count=99999999;put(&player,0xe4,count);
 }
 void hit(void* player,EventServices& host){
+#if defined(TH20_IOS)
+    if(th20::ios::prevent_player_hit&&th20::ios::prevent_player_hit(player))return;
+#endif
     auto& entity=*static_cast<Player*>(player);auto& context=*entity.context;
     host.mark_enemies();host.notify_secondary(context.objects_04[3]);
     auto* overlay=static_cast<overlay::WeaponStoneInf*>(host.session().contexts[0].overlay_owner);

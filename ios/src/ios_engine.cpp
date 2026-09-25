@@ -2,6 +2,7 @@
 #include "ios_platform.h"
 #include "ios_game_input.h"
 #include "ios_unlock.h"
+#include "ios_cheats.h"
 #include "../../source_reconstruction/program_entry/program_entry.hpp"
 #include "../../source_reconstruction/program_entry/unrecovered_dependencies.hpp"
 #include "../../source_reconstruction/program_entry/text_constants.hpp"
@@ -169,6 +170,7 @@ template<class F> bool guarded(Engine& e,const char* operation,F&& function) noe
 }
 
 int main(int argc,char** argv) {
+    th20::ios::cheats::install();
     // UIKit retains callback userdata; PMR containers also retain the listener.
     auto* engine=new Engine;
     TH20IOSCallbacks callbacks{};
@@ -178,6 +180,10 @@ int main(int argc,char** argv) {
     callbacks.key=[](void*,int key,bool down){input::key(key,down);};
     callbacks.touch=[](void* p,TH20IOSTouchPhase phase,uint64_t id,float x,float y,float dx,float dy){auto& e=*static_cast<Engine*>(p);guarded(e,"touch",[&]{input::touch(phase,id,x,y,dx,dy);});};
     callbacks.clear_input=[](void*){input::clear();};
+    callbacks.combat_options=[](void*,bool developer,bool autobomb){th20::ios::cheats::configure(developer,autobomb);};
+    callbacks.dev_action=[](void* p,int action){
+        return static_cast<Engine*>(p)->running?th20::ios::cheats::perform(action):0;
+    };
     callbacks.cheat_code=[](void* p,const char* code){
         auto& e=*static_cast<Engine*>(p);if(!e.running)return -1;
         return th20::ios::apply_unlock_code(code);

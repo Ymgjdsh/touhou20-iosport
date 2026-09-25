@@ -16,7 +16,9 @@
 #include "ios_host.h"
 #include <fstream>
 #include <string>
+#include <cstdlib>
 extern "C" int th20_ios_mobile_settings_probe();
+extern "C" int th20_ios_dev_probe();
 
 namespace {
 namespace pe=th20::source::program_entry;
@@ -75,6 +77,8 @@ void tick(){
     // before the first stage; keep this test-only timeout above that cost.
     if(now-started>1800){finish(false,"timeout before playable stage",gameplay::controller?gameplay::controller->frame_timer.current:-1);return;}
     const auto scene=pe::graphics_state.field_0b08;
+    const bool developerProbe=std::getenv("TH20_DEV_PROBE")!=nullptr;
+    if(developerProbe){settingsStarted=settingsPassed=true;musicPhase=4;}
     if(settingsStarted&&!settingsPassed){
         const int result=th20_ios_mobile_settings_probe();
         if(result<0){finish(false,"mobile settings probe failed",-1);return;}
@@ -115,6 +119,11 @@ void tick(){
     if(scene!=7||!gameplay::controller)return;
     auto* player=static_cast<th20::source::player_entity::Player*>(th20::source::game_session::context(0).objects_04[0]);
     const int frame=gameplay::controller->frame_timer.current;
+    if(developerProbe){
+        const int result=th20_ios_dev_probe();
+        if(result)finish(result>0,"developer menu and collision autobomb probe",frame);
+        return;
+    }
     // Actual UIKit rotation and real game pause; geometry-only unit tests
     // cannot establish that the host updates its drawable at the same time.
     const bool canPause=[ [UIApplication.sharedApplication.keyWindow.rootViewController valueForKey:@"inputMode"] integerValue]==TH20_IOS_INPUT_GAMEPLAY;

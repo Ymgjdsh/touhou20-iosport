@@ -51,9 +51,10 @@ while time.monotonic() < deadline:
             time.sleep(.25)
             continue
         (report / result.name).write_text(json.dumps(outcome, indent=2) + "\n")
-        settings = docs / "mobile-settings-probe.json"
-        if settings.exists():
-            (report / settings.name).write_bytes(settings.read_bytes())
+        for name in ("mobile-settings-probe.json", "dev-probe.json"):
+            settings = docs / name
+            if settings.exists():
+                (report / settings.name).write_bytes(settings.read_bytes())
         logs = sorted((docs / "Logs").glob("*.log"), key=lambda p: p.stat().st_mtime)
         if logs:
             (report / "game.log").write_bytes(logs[-1].read_bytes())

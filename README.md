@@ -50,6 +50,20 @@ Settings provide `Hybrid`, `Drag`, and `Joystick` movement modes, a `No Button` 
 - Three-finger long press during gameplay: pause
 - Two-finger tap in menus: back
 
+## Developer menu and Auto Bomb
+
+Enable **Developer Mode** in Settings to show the **DEV** button during battle.
+Its stone-themed panel pauses play while open and offers invincibility, maximum
+score, TH20 item counters and stone gauge, full power, full lives/bombs, Max All,
+and bullet/laser clearing. Turning Developer Mode off also turns invincibility off.
+
+**Auto Bomb** is a separate Settings switch. When a collision would hit the
+player, it starts the character's normal bomb before the death sound and hit
+state, consuming one bomb without losing a life. If no bomb is available or
+the game disallows bombing, the normal hit applies. Both settings default to
+off; developer actions and Auto Bomb are disabled during replay playback.
+Runs using these features modify gameplay and are intended for practice/testing.
+
 ## Assets and copyright
 
 This repository publishes porting code and build tools only. Game data, character artwork, music, and other original content remain the property of their respective rights holders. Use only assets you have legally obtained and follow applicable law and the original game's licensing terms.
@@ -113,6 +127,17 @@ bash ios/build_ios.sh
 - 战斗中双指轻按：释放符卡
 - 战斗中三指长按：暂停
 - 菜单中双指轻按：返回
+
+## 开发者菜单与自动符卡
+
+设置中开启**开发者模式**后，战斗画面会显示 **DEV** 按钮。矿石风格的面板
+打开时暂停战斗，支持无敌、最高分、TH20 道具计数与宝石能量最大、满火力、
+满残机与符卡、全部最大和清除子弹/激光。关闭开发者模式会同时关闭无敌。
+
+**Auto Bomb / 自动符卡**是独立的设置开关。碰撞即将造成受击时，在死亡音效
+和受击状态前启动角色原有符卡，消耗一枚符卡并保留残机。没有可用符卡或当前
+不能释放符卡时，正常受击。两个设置默认关闭；播放回放时禁用开发者操作和
+自动符卡。这些功能会改变游戏过程，适用于练习和测试。
 
 ## 资源与版权
 

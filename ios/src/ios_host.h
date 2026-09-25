@@ -51,6 +51,8 @@ typedef struct TH20IOSCallbacks {
     // Settings-only local unlock code. 1 = saved, 0 = invalid code,
     // -1 = game unavailable, -2 = failed (details in the diagnostic log).
     int (*cheat_code)(void *userdata, const char *code);
+    void (*combat_options)(void *userdata, bool developer, bool autobomb);
+    int (*dev_action)(void *userdata, int action);
 } TH20IOSCallbacks;
 
 // Call from the real engine's main(). There is deliberately no placeholder main.
