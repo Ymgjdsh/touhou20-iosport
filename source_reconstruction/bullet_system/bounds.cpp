@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "movement.hpp"
 #include "../runtime_state/state.hpp"
 #include "../ecl_vm/math.hpp"
@@ -11,13 +12,13 @@ namespace {
 float sub(float a,float b){return _mm_cvtss_f32(_mm_sub_ss(_mm_set_ss(a),_mm_set_ss(b)));}
 float div(float a,float b){return _mm_cvtss_f32(_mm_div_ss(_mm_set_ss(a),_mm_set_ss(b)));}
 const sprite::Vec2& bounds(Bullet& b){return static_cast<Controller*>(b.context->primary_owner)->vector_4c;}
-bool outside(const sprite::Vec3& p,float width,float height){return p.x<=div(-width,2)||p.x>=div(width,2)||p.y<=sub(224,div(height,2))||p.y>=n::add32(div(height,2),224);}
-int bounce_vertical(Bullet& b,bool bottom){auto& c=b.commands[4];const auto height=bounds(b).y>0?bounds(b).y:c.vector_18.y;
+bool outside(const sprite::Vec3& p,float width,float height){width=th20::ios::world::expand_width(width);height=th20::ios::world::expand_height(height);return p.x<=div(-width,2)||p.x>=div(width,2)||p.y<=sub(224,div(height,2))||p.y>=n::add32(div(height,2),224);}
+int bounce_vertical(Bullet& b,bool bottom){auto& c=b.commands[4];const auto height=th20::ios::world::expand_height(bounds(b).y>0?bounds(b).y:c.vector_18.y);
     const float edge=bottom?n::add32(224,div(height,2)):sub(224,div(height,2));
     if(bottom?!(b.position.y>=edge):!(edge>b.position.y))return 0;
     if(!(c.field_3c&16u)){b.angle=m::wrap_angle(-b.angle);b.position.y=sub(bottom?n::add32(448,height):sub(448,height),b.position.y);}return 1;
 }
-int bounce_horizontal(Bullet& b,bool right){auto& c=b.commands[4];const auto width=bounds(b).x>0?bounds(b).x:c.vector_18.x;
+int bounce_horizontal(Bullet& b,bool right){auto& c=b.commands[4];const auto width=th20::ios::world::expand_width(bounds(b).x>0?bounds(b).x:c.vector_18.x);
     if(right?!(b.position.x>=div(width,2)):!(div(-width,2)>b.position.x))return 0;
     if(!(c.field_3c&16u)){b.angle=m::wrap_angle(sub(-b.angle,3.1415927410125732f));b.angle=m::wrap_angle(m::wrap_angle(n::add32(b.angle,0)));b.position.x=sub(right?width:-width,b.position.x);}return 1;
 }
@@ -37,9 +38,10 @@ int update_offscreen_delay_00481200(Bullet& b){auto& c=b.commands[11];n::timer_a
     if(c.field_30){const auto& s=sprite::current_sprite(*program_entry::sprite_controller,*b.animation);
         if(outside_viewport(b.position,div(s.extent_4c,2),div(s.extent_48,2))){
             sprite::Vec2 direction{};m::polar(direction.x,direction.y,b.angle,1);float crosses[4],dots[4];
+            const float width=384*th20::ios::world::extent(),height=448*th20::ios::world::extent();
             for(unsigned i=0;i<4;++i){
-                const auto x=sub(div((i&1)?n::add32(384,s.extent_4c):sub(-384,s.extent_4c),2),b.position.x);
-                const auto y=sub(n::add32(224,div((i&2)?n::add32(448,s.extent_48):sub(-448,s.extent_48),2)),b.position.y);
+                const auto x=sub(div((i&1)?n::add32(width,s.extent_4c):sub(-width,s.extent_4c),2),b.position.x);
+                const auto y=sub(n::add32(224,div((i&2)?n::add32(height,s.extent_48):sub(-height,s.extent_48),2)),b.position.y);
                 const auto corner=normalized({x,y});crosses[i]=sub(n::mul32(direction.x,corner.y),n::mul32(direction.y,corner.x));dots[i]=n::add32(n::mul32(direction.x,corner.x),n::mul32(direction.y,corner.y));
             }
             float negative=-999,positive=-999;

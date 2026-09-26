@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "../../native_recovered/portable_std.hpp"
 #include "shot_callbacks.hpp"
 #include "shot_data.hpp"
@@ -189,7 +190,7 @@ int update_shot_callback(Shot& shot,unsigned index,ShotCallbackEnvironment& env)
     }
     case 7:return 0;                                     //501f30 verified original
     case 4:case 5:return update_laser(shot,index,env);
-    case 8:if(shot.fields_98[1]==1&&(shot.motion.position.x< -192.0f||shot.motion.position.x>192.0f))set_angle(shot,-pi-shot.motion.angle_1c);return 0; //502a20
+    case 8:{const auto b=th20::ios::world::bounds();if(shot.fields_98[1]==1&&(shot.motion.position.x<b.left||shot.motion.position.x>b.right))set_angle(shot,-pi-shot.motion.angle_1c);return 0;} //502a20
     case 9:case 14:if(shot.fields_98[1]==1)shot.motion.field_18+=0.1f;return 0; //502ad0
     case 10:if(shot.fields_98[1]==1)shot.motion.field_18+=-0.22f;return shot.timer_1c.current>=20?-1:0; //502b10
     case 11:                                             //502b70

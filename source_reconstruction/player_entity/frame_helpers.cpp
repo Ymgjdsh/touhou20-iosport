@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "../../native_recovered/portable_std.hpp"
 #include "frame_helpers.hpp"
 #include "../damage_regions/regions.hpp"
@@ -11,7 +12,11 @@ void advance_fixed_motion(Player& player,std::int32_t x,std::int32_t y,float clo
     player.vector_20c4.x=float(x)*clock_scale;player.vector_20c4.y=float(y)*clock_scale;if(player.fields_674[2])player.vector_20d0=player.vector_20c4;
     const auto dx=recovered::truncate32(player.vector_20c4.x),dy=recovered::truncate32(player.vector_20c4.y);std::memcpy(&player.vector_20dc.x,&dx,4);std::memcpy(&player.vector_20dc.y,&dy,4);
     player.fixed_position.x=recovered::signed_bits(std::uint32_t(player.fixed_position.x)+std::uint32_t(dx));player.fixed_position.y=recovered::signed_bits(std::uint32_t(player.fixed_position.y)+std::uint32_t(dy));
-    if(((player.entity_flags>>6)&3u)==0){player.fixed_position.x=std::clamp(player.fixed_position.x,-0x5c00,0x5c00);player.fixed_position.y=std::clamp(player.fixed_position.y,0x1000,0xd800);}
+    if(((player.entity_flags>>6)&3u)==0){
+        const auto b=th20::ios::world::bounds();
+        player.fixed_position.x=std::clamp(player.fixed_position.x,int((b.left+8)*128),int((b.right-8)*128));
+        player.fixed_position.y=std::clamp(player.fixed_position.y,int((b.top+32)*128),int((b.bottom-16)*128));
+    }
     player.position_614.x=float(player.fixed_position.x)/128.0f;player.position_614.y=float(player.fixed_position.y)/128.0f;
 }
 void update_feedback(Feedback& feedback,ShotCallbackEnvironment& env){
@@ -25,7 +30,8 @@ void update_feedback(Feedback& feedback,ShotCallbackEnvironment& env){
     else if(auto* animation=env.find_animation(feedback.handle_4c))animation->base.vector_50={feedback.timers[0].current_f/30.0f,1};
 }
 bool shot_corners_outside(const sprite::Vec3(&corners)[4],std::int32_t x,std::int32_t y){
-    const float left=float(x)-192.0f,right=float(x)+192.0f,top=float(y),bottom=float(y)+448.0f;
+    const auto b=th20::ios::world::bounds();
+    const float left=float(x)+b.left,right=float(x)+b.right,top=float(y)+b.top,bottom=float(y)+b.bottom;
     // Every corner uses COMISS/JAE rejection: unordered values do not reject.
     for(const auto& p:corners)if(!(p.x<=left||right<=p.x||p.y<=top||bottom<=p.y))return false;
     return true;

@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "enemy_movement.hpp"
 #include "enemy_interpolation.hpp"
 #include "enemy_variables.hpp"
@@ -7,9 +8,6 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
-#if defined(TH20_IOS)
-#include "../../ios/src/ios_host.h"
-#endif
 namespace th20::source::gameplay {
 namespace {
 float subtract(float a,float b) noexcept{return _mm_cvtss_f32(_mm_sub_ss(_mm_set_ss(a),_mm_set_ss(b)));}
@@ -32,8 +30,8 @@ void combine_enemy_movements(EnemyState& enemy,float clock_scale) {
             const auto upper=recovered::add32(divide(extent,2),center);
             return upper<value?upper:value;
         };
-        motion.position.x=clamp(motion.position.x,field(enemy.fields_178[0]),field(enemy.fields_178[2]));
-        motion.position.y=clamp(motion.position.y,field(enemy.fields_178[1]),field(enemy.fields_178[3]));
+        motion.position.x=clamp(motion.position.x,field(enemy.fields_178[0]),th20::ios::world::expand_width(field(enemy.fields_178[2])));
+        motion.position.y=clamp(motion.position.y,field(enemy.fields_178[1]),th20::ios::world::expand_height(field(enemy.fields_178[3])));
         auto first=motion.position;
         for(std::size_t i=1;i<enemy.movements.size();++i)first=sub(first,position(enemy.movements[i].motion));
         if(enemy.movements.empty())throw std::out_of_range("Bounded Enemy requires first movement record");
@@ -93,19 +91,13 @@ int update_enemy_movement(EnemyState& enemy,EnemyMovementServices& host) {
         enemy.vector_170.y=static_cast<float>(std::fabs(static_cast<double>(host.animation_width(*animation))));
     }
     const auto p=position(enemy.motion_110);const auto halfx=divide(enemy.vector_170.x,2),halfy=divide(enemy.vector_170.y,2);
-    bool keep_for_extended_view=false;
-#if defined(TH20_IOS)
-    float view_left,view_top,view_right,view_bottom;
-    if(th20_ios_extended_battle_bounds(&view_left,&view_top,&view_right,&view_bottom))
-        keep_for_extended_view=!(recovered::add32(p.x,halfx)<view_left||subtract(p.x,halfx)>view_right||
-            recovered::add32(p.y,halfy)<view_top||subtract(p.y,halfy)>view_bottom);
-#endif
-    if(-192.0f>recovered::add32(p.x,halfx)||subtract(p.x,halfx)>192.0f) {
+    const auto area=th20::ios::world::bounds();
+    if(area.left>recovered::add32(p.x,halfx)||subtract(p.x,halfx)>area.right) {
         enemy.fields_2c8[2]&=~0x40u;
-        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&4u)&&!keep_for_extended_view)return -1;
-    } else if(0.0f>recovered::add32(p.y,halfy)||subtract(p.y,halfy)>448.0f) {
+        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&4u))return -1;
+    } else if(area.top>recovered::add32(p.y,halfy)||subtract(p.y,halfy)>area.bottom) {
         enemy.fields_2c8[2]&=~0x40u;
-        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&8u)&&!keep_for_extended_view)return -1;
+        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&8u))return -1;
     } else {enemy.fields_2c8[1]|=1u;enemy.fields_2c8[2]|=0x40u;}
     return 0;
 }

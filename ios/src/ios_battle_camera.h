@@ -26,13 +26,11 @@ struct Transform {
     }
 };
 inline Transform make(float zoom, float anchor_x, float anchor_y,
-                      float field_ratio_x = 1, float field_ratio_y = 1) {
+                      float field_ratio_x = 1, float field_ratio_y = 1, float world_extent = 1) {
     if (!std::isfinite(zoom) || !std::isfinite(anchor_x) || !std::isfinite(anchor_y)) return {};
     zoom = std::clamp(zoom, .1f, 3.f);
-    auto center = [zoom](float anchor) {
-        anchor = std::clamp(anchor, -1.f, 1.f);
-        if (zoom < 1) return (1 - zoom) * anchor;
-        const float limit = 1 - 1 / zoom;
+    auto center = [zoom,world_extent](float anchor) {
+        const float limit = std::max(0.f, world_extent - 1 / zoom);
         return std::clamp(anchor, -limit, limit);
     };
     return {zoom, -zoom * center(anchor_x) * field_ratio_x,

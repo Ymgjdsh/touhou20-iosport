@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "bullet.hpp"
 #include "../damage_regions/geometry.hpp"
 #include "../runtime_state/state.hpp"
@@ -36,7 +37,7 @@ std::int32_t cancel_rectangle(Controller& owner,const sprite::Vec3& center,const
     for(;iterator.current;iterator.advance()){
         auto& b=*reinterpret_cast<Bullet*>(iterator.current->value);if((b.state!=1&&b.state!=2)||b.field_18)continue;
         const auto radius=n::mul32(b.size.x,b.scale);
-        if(!geometry::rectangle_circle(center.x,center.y,size.x,size.y,angle,b.position.x,b.position.y,radius)||!geometry::rectangle_circle(0,224,384,448,0,b.position.x,b.position.y,radius))continue;
+        if(!geometry::rectangle_circle(center.x,center.y,size.x,size.y,angle,b.position.x,b.position.y,radius)||!geometry::rectangle_circle(0,224,384*th20::ios::world::extent(),448*th20::ios::world::extent(),0,b.position.x,b.position.y,radius))continue;
         ++count;++owner.cancel_counter;b.flags=(b.flags&~0x1800u)|((kind&3u)<<11);cancel(b,drop_mode);
     }
     return n::signed_bits(count);

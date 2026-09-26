@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "bullet.hpp"
 #include "../runtime_state/state.hpp"
 namespace th20::source::bullet {
@@ -9,7 +10,8 @@ void assign_timer_float(recovered::Timer& timer,float value) noexcept {
     timer.previous=_mm_cvtt_ss2si(_mm_set_ss(sub(value,1)));
 }
 bool outside_viewport(const sprite::Vec3& p,float w,float h) noexcept {
-    return n::add32(p.x,w)<=-192||sub(p.x,w)>=192||n::add32(p.y,h)<=0||sub(p.y,h)>=448;
+    const auto b=th20::ios::world::bounds();
+    return n::add32(p.x,w)<=b.left||sub(p.x,w)>=b.right||n::add32(p.y,h)<=b.top||sub(p.y,h)>=b.bottom;
 }
 bool in_circle(const sprite::Vec3& a,const sprite::Vec3& b,float radius) noexcept {
     const auto x=sub(a.x,b.x),y=sub(a.y,b.y);return n::add32(n::mul32(x,x),n::mul32(y,y))<=n::mul32(radius,radius);

@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "movement.hpp"
 #include "../runtime_state/state.hpp"
 #include "../ecl_vm/math.hpp"
@@ -58,10 +59,11 @@ int update_position_offset(Bullet& b){auto& c=b.commands[9];if(c.timer.current>=
 }
 int update_screen_wrap(Bullet& b){auto& c=b.commands[6];auto& s=sprite::current_sprite(*pe::sprite_controller,*b.animation);
     if(!outside_viewport(b.position,div(s.extent_4c,2),div(s.extent_48,2)))return 0;
-    if((c.field_38&1u)&&b.position.y<0)b.position.y=n::add32(n::add32(b.position.y,448),s.extent_48);
-    else if((c.field_38&2u)&&b.position.y>448)b.position.y=sub(b.position.y,n::add32(448,s.extent_48));
-    else if((c.field_38&4u)&&b.position.x<-192)b.position.x=n::add32(n::add32(b.position.x,384),s.extent_4c);
-    else if((c.field_38&8u)&&b.position.x>192)b.position.x=sub(b.position.x,n::add32(384,s.extent_4c));
+    const auto area=th20::ios::world::bounds();const float width=area.right-area.left,height=area.bottom-area.top;
+    if((c.field_38&1u)&&b.position.y<area.top)b.position.y=n::add32(n::add32(b.position.y,height),s.extent_48);
+    else if((c.field_38&2u)&&b.position.y>area.bottom)b.position.y=sub(b.position.y,n::add32(height,s.extent_48));
+    else if((c.field_38&4u)&&b.position.x<area.left)b.position.x=n::add32(n::add32(b.position.x,width),s.extent_4c);
+    else if((c.field_38&8u)&&b.position.x>area.right)b.position.x=sub(b.position.x,n::add32(width,s.extent_4c));
     else return 0;
     ++c.field_30;sound(b);if(n::signed_bits(c.field_30)>=n::signed_bits(c.field_34)){clear_command(b,0x1000);return 1;}return 0;
 }

@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "item.hpp"
 #include "../ecl_vm/math.hpp"
 #include "../sprite_renderer/pool.hpp"
@@ -26,7 +27,7 @@ Item* spawn(ItemInf& owner,int type,const sprite::Vec3& position,std::uint32_t c
     }
     if(type==15){owner.point_counter=recovered::signed_bits(static_cast<unsigned>(owner.point_counter)+game_session::session.player_table.field_1e0+1);if(owner.point_counter<10)return nullptr;owner.point_counter=0;type=2;}
     auto* item=take(owner.ordinary_free,owner.active);if(!item)return nullptr;
-    item->state=1;item->position=position;item->position.z=0;if(item->position.x>-192){if(item->position.x>=192)item->position.x=192;}else item->position.x=-192;
+    item->state=1;item->position=position;item->position.z=0;const auto area=th20::ios::world::bounds();if(item->position.x>area.left){if(item->position.x>=area.right)item->position.x=area.right;}else item->position.x=area.left;
     if(type==14)type=6;ecl::math::polar(item->velocity.x,item->velocity.y,angle,speed);item->velocity.z=0;recovered::timer_set(item->timer,0);item->speed=0;item->attraction_speed=0;item->delay=delay;item->type=type;item->sound=sound;select_context(*item,owner.view_index);
     if(delay==0)host.spawn_effect(*item);item->draw_state=0;
     if(type<0)throw std::out_of_range("Original Item script table index");host.bind_animation(owner,item->animation,scripts[type][0]);host.bind_animation(owner,item->secondary_animation,scripts[type][1]);item->attachment=0;sprite::set_animation_color(item->animation,color);item->extra=extra;return item;

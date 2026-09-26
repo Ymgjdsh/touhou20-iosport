@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "platform_window.hpp"
 #include "data_constants.hpp"
 #include "directx_math.hpp"
@@ -55,7 +56,7 @@ void select_ios_battle_camera(const program_entry::ViewportState& viewport,bool 
     // battlefield. Other world viewports cover that battlefield directly.
     const float rx=padded&&v.Width>32?float(v.Width-32)/v.Width:1.f;
     const float ry=padded&&v.Height>32?float(v.Height-32)/v.Height:1.f;
-    transform=th20::ios::camera::make(zoom,anchor_x,anchor_y,rx,ry);
+    transform=th20::ios::camera::make(zoom,anchor_x,anchor_y,rx,ry,th20::ios::world::extent());
 #else
     (void)viewport;(void)enabled;(void)padded;
 #endif

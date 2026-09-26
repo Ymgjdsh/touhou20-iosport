@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "reimu.hpp"
 #include "character_environment.hpp"
 #include "../program_entry/program_entry.hpp"
@@ -60,7 +61,7 @@ void update_reimu_orb(ReimuOrb& orb){
         }else{
             auto* enemy=static_cast<gameplay::EnemyController*>(game_session::context(0).objects_04[1]);
             if(enemy)orb.target_identifier=gameplay::nearest_enemy_identifier(*enemy,{orb.motion.position.x,orb.motion.position.y},512);
-            if(!orb.target_identifier){if(state::outside_motion_bounds(orb.motion,0,224,320,384))orb.motion.field_18=n::mul32(orb.motion.field_18,.9f);}
+            if(!orb.target_identifier){if(state::outside_motion_bounds(orb.motion,0,224,320+2*th20::ios::world::extra_x(),384+2*th20::ios::world::extra_y()))orb.motion.field_18=n::mul32(orb.motion.field_18,.9f);}
             else{
                 orb.target=enemy?gameplay::find_enemy_in_list(enemy->enemies,orb.target_identifier):nullptr;
                 if(!gameplay::enemy_excluded(orb.target)){

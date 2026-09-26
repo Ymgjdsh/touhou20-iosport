@@ -1,4 +1,5 @@
 #include "../src/ios_battle_camera.h"
+#include "../src/ios_battle_world.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -39,5 +40,30 @@ int main() {
     check(bounds[0]<-500 && bounds[2]>700, "zoom-out preserves objects beyond the old screen");
     check(c::make(1,.9f,-.9f).identity(), "1x is unchanged at every player position");
     check(c::make(NAN,0,0).identity(), "non-finite zoom cannot poison rendering");
+    th20::ios::world::Arena arena;
+    arena.update(1,true,.5f);
+    auto b=arena.bounds();
+    check(b.left==-384 && b.right==384 && b.top==-224 && b.bottom==672,
+          "half zoom opens all four original movement boundaries");
+    arena.update(1,true,3);
+    check(arena.extent==2, "zooming in cannot shrink an occupied arena");
+    for(float zoom : {.5f,1.f,3.f}) {
+        // Player is outside the original field, near the enlarged right edge.
+        auto camera=c::make(zoom,376.f/192,0,1,1,arena.extent);
+        float x=376.f/192,y=0;camera.apply(x,y,1);
+        check(x>=-1 && x<=1,"camera keeps an expanded-field player visible");
+        float destination[4]{0,0,384,448},source[4];
+        camera.source_bounds(destination,0,0,384,448,source);
+        check(source[0]>=-192-.003f && source[2]<=576+.003f,
+              "camera viewport remains inside the stable expanded arena");
+    }
+    arena.update(1,true,.1f);arena.update(1,true,2);
+    check(arena.extent==10,"minimum zoom opens a tenfold field and stays open");
+    arena.update(2,true,2);
+    check(arena.extent==1,"new stage resets expansion independently of camera zoom");
+    arena.update(2,true,.1f);arena.update(2,false,.1f);
+    check(arena.extent==1 && arena.stage==-1,"disabling expansion restores ordinary bounds");
+    arena.update(1,true,NAN);
+    check(arena.extent==1,"invalid zoom cannot create invalid simulation bounds");
     std::printf("PASS: %u battle camera checks\n",checks);
 }

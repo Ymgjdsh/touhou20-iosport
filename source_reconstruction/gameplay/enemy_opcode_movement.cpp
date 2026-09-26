@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "../../native_recovered/portable_std.hpp"
 #include "enemy_opcode_movement.hpp"
 #include "enemy_movement.hpp"
@@ -77,7 +78,7 @@ EnemyOpcodeResult execute_enemy_movement_opcode(EnemyOpcodeReader& r,EnemyMoveme
     }
     case 412:case 413:{
         MotionEditor edit(record(s,op==412?selected_index():1));auto& m=edit.value;
-        const auto position=r.get<sprite::Vec3>(0x110);const float cx=r.get<float>(0x178),cy=r.get<float>(0x17c),width=r.get<float>(0x180),height=r.get<float>(0x184);float a;
+        const auto position=r.get<sprite::Vec3>(0x110);const float cx=r.get<float>(0x178),cy=r.get<float>(0x17c),width=th20::ios::world::expand_width(r.get<float>(0x180)),height=th20::ios::world::expand_height(r.get<float>(0x184));float a;
         if(cx-width/4.f<=position.x){if(position.x<=width/4.f+cx){const auto player=env.player_position(r.context());a=env.random_angle()/4.f;const auto choice=(env.random_integer()&0xffffu)%3;if(player.x<=position.x){if(choice!=0)a=a+pi;}else if(choice==0)a=a+pi;}
             else a=ecl::math::wrap_angle(env.random_angle()/3.f+pi);}
         else a=env.random_angle()/3.f;

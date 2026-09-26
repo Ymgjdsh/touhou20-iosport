@@ -1,5 +1,8 @@
 #include "ios_game_input.h"
 #include "ios_touch_motion.h"
+#include "ios_battle_world.h"
+#include "../../source_reconstruction/gameplay/gameplay.hpp"
+#include "../../source_reconstruction/gameplay/player_state.hpp"
 #include "../../source_reconstruction/program_entry/program_entry.hpp"
 #include "../../source_reconstruction/input/input.hpp"
 #include "../../source_reconstruction/title_system/title.hpp"
@@ -528,7 +531,20 @@ void touch(TH20IOSTouchPhase phase,uint64_t id,float x,float y,float dx,float dy
         else if(phase==TH20_IOS_TOUCH_CANCEL){moving=false;drag.clear();}
     }
 }
-void before_frame(){sync_scene();navigate();}
+void before_frame(){
+    sync_scene();
+    const float zoom=th20_ios_battle_world_zoom();
+    const int stage=observed.current==7 && source::gameplay::controller ?
+        source::gameplay::player_state::read<int>(source::game_session::session.player_table,0x1f4) : -1;
+    static const source::gameplay::GameController* previous=nullptr;
+    static int last_frame=-1;
+    auto* controller=source::gameplay::controller;
+    const int frame=stage>=0?controller->frame_timer.current:-1;
+    if(controller!=previous || frame<last_frame)world::arena={};
+    previous=controller;last_frame=frame;
+    world::arena.update(stage,zoom>0,zoom);
+    navigate();
+}
 void after_frame(){sync_scene();}
 bool player_screen_anchor(float& x,float& y,bool& focused) noexcept {
     auto* p=player();
@@ -541,7 +557,9 @@ void apply_drag(source::player_entity::Player& p,int& x,int& y,float rate) noexc
     if(p.view_index!=0||p.state!=1||mode!=TH20_IOS_INPUT_GAMEPLAY){drag.clear();return;}
     const float scale=pe::window_state.scale;
     if(!std::isfinite(rate)||rate<=0||!std::isfinite(scale)||scale<=0){drag.clear();return;}
-    const auto delta=drag.step();
+    auto delta=drag.step();
+    const float zoom=th20_ios_battle_world_zoom();
+    if(zoom>0){delta.x/=zoom;delta.y/=zoom;}
     if(delta.x==0&&delta.y==0)return;
     // The existing fixed-position integrator multiplies velocity by clock rate.
     // Cancel that multiplier for direct finger displacement, preserving its

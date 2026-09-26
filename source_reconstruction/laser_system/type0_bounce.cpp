@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "type0.hpp"
 #include "../damage_regions/geometry.hpp"
 #include "../ecl_vm/math.hpp"
@@ -22,10 +23,11 @@ int Type0Laser::bounce(){
     const auto bounce_at=[&](float ax,float ay,float bx,float by,bool vertical){
         if(!(c.field_38&16)){intersection(parameters.position.x,parameters.position.y,ax,ay,bx,by,end.x,end.y,position.x,position.y);parameters.position.z=0;parameters.angle=vertical?m::wrap_angle(sub(-angle,3.1415927410125732f)):-angle;parameters.speed=c.field_10;parameters.radial_offset=0;spawn_type0(*static_cast<Controller*>(context->objects_04[4]),parameters);}bounced=true;
     };
-    if((c.field_38&1)&&end.y<0)bounce_at(-256,0,256,0,false);
-    if((c.field_38&2)&&end.y>448)bounce_at(-256,448,256,448,false);
-    if((c.field_38&4)&&end.x<-192)bounce_at(-192,-192,-192,640,true);
-    if((c.field_38&8)&&end.x>192)bounce_at(192,-192,192,640,true);
+    const auto b=th20::ios::world::bounds();
+    if((c.field_38&1)&&end.y<b.top)bounce_at(b.left-64,b.top,b.right+64,b.top,false);
+    if((c.field_38&2)&&end.y>b.bottom)bounce_at(b.left-64,b.bottom,b.right+64,b.bottom,false);
+    if((c.field_38&4)&&end.x<b.left)bounce_at(b.left,b.top-192,b.left,b.bottom+192,true);
+    if((c.field_38&8)&&end.x>b.right)bounce_at(b.right,b.top-192,b.right,b.bottom+192,true);
     if(!bounced)return 0;active_commands&=~std::uint64_t{64};if(parameters.field_4c>=0)program_entry::thread_registry.request_effect(parameters.field_4c,0);return 1;
 }
 }

@@ -3,6 +3,7 @@
 #import <OpenGLES/ES3/gl.h>
 #import <mach/mach.h>
 #include "ios_host.h"
+#include "ios_battle_world.h"
 #include "ios_language.h"
 #include "ios_presentation_layout.h"
 #include <algorithm>
@@ -1393,7 +1394,7 @@ uint64_t residentBytes() {
             case 2: return [self switchCell:@"平滑缩放" detail:@"关闭时使用清晰的像素边缘" tag:7 value:owner.smoothScaling];
             case 3: return [self switchCell:@"显示性能信息" detail:@"帧率、更新频率和内存" tag:8 value:owner.showPerformance];
             case 4: return [self switchCell:@"始终显示自机判定点" detail:@"不按 S 时也显示判定点，不改变移动速度" tag:12 value:owner.alwaysShowHitbox];
-            case 5: return [self switchCell:@"缩放战斗画面" detail:@"战斗中四指张合可在 0.1–3 倍间调整战斗视野；计分板保持原大小" tag:13 value:owner.battleZoomEnabled];
+            case 5: return [self switchCell:@"缩放战斗画面" detail:@"四指缩放 0.1–3 倍；缩小扩大活动区，本关放大不收缩；关闭后恢复原边界" tag:13 value:owner.battleZoomEnabled];
         }
     }
     if (path.section == 3) {
@@ -1580,28 +1581,29 @@ bool th20_ios_always_show_hitbox(void) {
     return controller && controller.ready && controller.alwaysShowHitbox &&
         controller.inputMode == TH20_IOS_INPUT_GAMEPLAY;
 }
+float th20_ios_battle_world_zoom(void) {
+    TH20ViewController *controller=host;
+    return controller && controller.ready && controller.battleZoomEnabled ? controller.battleZoom : 0;
+}
 bool th20_ios_battle_camera(float *zoom, float *anchor_x, float *anchor_y) {
     TH20ViewController *controller = host;
     if (!controller || !controller.ready || !controller.battleZoomEnabled ||
-        controller.inputMode != TH20_IOS_INPUT_GAMEPLAY || !controller.combatScene) return false;
+        !controller.combatScene) return false;
     if (zoom) *zoom = controller.battleZoom;
     float x = 224, y = 240; bool focused = false;
     if (callbacks.player_anchor &&
         (!callbacks.player_anchor(callbacks.userdata, &x, &y, &focused) ||
          !std::isfinite(x) || !std::isfinite(y))) { x = 224; y = 240; }
-    if (anchor_x) *anchor_x = std::clamp((x - 224.f) / 192.f, -1.f, 1.f);
-    if (anchor_y) *anchor_y = std::clamp((240.f - y) / 224.f, -1.f, 1.f);
+    if (anchor_x) *anchor_x = (x - 224.f) / 192.f;
+    if (anchor_y) *anchor_y = (240.f - y) / 224.f;
     return true;
 }
 bool th20_ios_extended_battle_bounds(float *left, float *top, float *right, float *bottom) {
-    float zoom = 1, anchorX = 0, anchorY = 0;
-    if (!th20_ios_battle_camera(&zoom, &anchorX, &anchorY) || zoom >= 1.f) return false;
-    zoom = std::max(zoom, 0.1f);
-    const float centerX = (1.f - zoom) * anchorX * 192.f;
-    const float centerY = 224.f - (1.f - zoom) * anchorY * 224.f;
-    if (left) *left = centerX - 192.f / zoom;
-    if (right) *right = centerX + 192.f / zoom;
-    if (top) *top = centerY - 224.f / zoom;
-    if (bottom) *bottom = centerY + 224.f / zoom;
+    if (th20::ios::world::extent() <= 1) return false;
+    const auto b=th20::ios::world::bounds();
+    if (left) *left=b.left;
+    if (right) *right=b.right;
+    if (top) *top=b.top;
+    if (bottom) *bottom=b.bottom;
     return true;
 }

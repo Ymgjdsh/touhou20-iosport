@@ -1,3 +1,4 @@
+#include "../../ios/src/ios_battle_world.h"
 #include "../bomb_system/bomb.hpp"
 #include "../player_entity/owner.hpp"
 #include "item.hpp"
@@ -21,6 +22,7 @@ void pursue(Item& item,const void* player){ecl::math::polar(item.velocity.x,item
 }
 void retire(Item& item,Environment& host){item.state=0;host.retire_attachment(item.attachment);scheduler::unlink(item.link);auto& destination=*item.free_list;scheduler::insert_after(destination.sentinel,item.link);item.link.owner=&destination;if(destination.tail==&destination.sentinel)destination.tail=&item.link;}
 int update(ItemInf& owner,Environment& host){
+    const auto area=th20::ios::world::bounds();
     host.select_view(owner);owner.special_count=0;owner.processed=0;auto* player=owner.context->objects_04[0];
     for(scheduler::Iterator iterator(owner.active.sentinel.next);iterator.current;iterator.advance()){
         auto& item=*reinterpret_cast<Item*>(iterator.current->value);if(!item.state)continue;
@@ -32,11 +34,11 @@ int update(ItemInf& owner,Environment& host){
             else {
                 move(item,state::clock_scale,owner.speed_scale);item.velocity.y=a(item.velocity.y,m(m(state::clock_scale,.03f),owner.speed_scale));
                 if(item.velocity.y>=0)item.velocity.x=0;if(item.velocity.y>2)item.velocity.y=2;
-                if(!(item.position.y<=472)||!(std::fabs(item.position.x)<200)){retire(item,host);continue;}
+                if(!(item.position.y<=area.bottom+24)||!(item.position.x>area.left-8&&item.position.x<area.right+8)){retire(item,host);continue;}
             }
         } else if(item.state==2){
             move(item,state::clock_scale);item.velocity.y=a(item.velocity.y,m(state::clock_scale,.03f));if(item.velocity.y>=0)item.state=1;
-            if(item.position.y>472||std::fabs(item.position.x)>=200){retire(item,host);continue;}
+            if(item.position.y>area.bottom+24||item.position.x<=area.left-8||item.position.x>=area.right+8){retire(item,host);continue;}
         } else if(item.state==3)pursue(item,player);
         else if(item.state==4){if(forced_collect()){item.attraction_speed=read<float>(player,offsetof(player_entity::Player,fields_2080));item.state=3;}pursue(item,player);}
         if(read<int>(player,offsetof(player_entity::Player,state))!=2){

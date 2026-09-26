@@ -80,6 +80,8 @@ void th20_ios_open_settings(void);
 bool th20_ios_always_show_hitbox(void);
 // Camera projection uses the original logical coordinates.
 bool th20_ios_battle_camera(float *zoom, float *anchor_x, float *anchor_y);
+// Zero when disabled; otherwise the selected zoom, including pause/dialogue.
+float th20_ios_battle_world_zoom(void);
 bool th20_ios_extended_battle_bounds(float *left, float *top, float *right, float *bottom);
 // Recovered input backend exports. Bind the host key callback to key_event;
 // invoke clear_keys on scene/lifecycle resets to drop pending sampled edges.
