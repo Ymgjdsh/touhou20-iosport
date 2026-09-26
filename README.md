@@ -78,9 +78,11 @@ Chinese dialogue, endings, music notes, spell/stone/trophy text and artwork come
 from the user-supplied **thpatch standalone translation dated 2025-09-06**.
 See [translation setup and credits](ios/TRANSLATION.md) for importing the pack.
 
-## Assets and copyright
+## Assets and licensing
 
-This repository publishes porting code and build tools only. Game data, character artwork, music, and other original content remain the property of their respective rights holders. Use only assets you have legally obtained and follow applicable law and the original game's licensing terms.
+This repository does not include the original Touhou executable, game data, music, replay, or save files. A runnable package must be assembled locally from files you are legally allowed to use.
+
+Licensing is component-specific. Keep the notices and licenses beside each bundled component; no blanket license is asserted for the original game or its assets. Game data, character artwork, music, and other original content remain the property of their respective rights holders. Use only assets you have legally obtained and follow applicable law and the original game's licensing terms.
 
 ## Credits
 
@@ -168,9 +170,11 @@ bash ios/build_ios.sh
 **thpatch 2025-09-06 独立版汉化补丁**。
 导入方法与完整汉化致谢见[语言集成说明](ios/TRANSLATION.md)。
 
-## 资源与版权
+## 资源与许可
 
-本仓库只发布移植代码和构建工具。游戏数据、角色图像、音乐及其他原作内容的版权归各自权利人所有。请只使用合法取得的资源，并遵守当地法律和原作许可要求。
+本仓库不包含原版东方可执行文件、游戏数据、音乐、回放或存档文件。可运行的安装包必须使用你合法持有的文件在本地自行组装。
+
+许可按组件分别适用。请在每个打包组件旁保留对应的声明与许可证；本仓库不对原游戏及其资源声明统一许可。游戏数据、角色图像、音乐及其他原作内容的版权归各自权利人所有。请只使用合法取得的资源，并遵守当地法律和原作许可要求。
 
 ## 致谢
 
