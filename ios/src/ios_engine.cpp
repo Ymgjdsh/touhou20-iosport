@@ -195,6 +195,10 @@ int main(int argc,char** argv) {
             pe::graphics_event_flags&=0xffffff9fu;e.start_session();
         });
     };
+    callbacks.player_anchor=[](void*,float* x,float* y,bool* focused){
+        if(!x||!y||!focused)return false;
+        return input::player_screen_anchor(*x,*y,*focused);
+    };
     callbacks.cheat_code=[](void* p,const char* code){
         auto& e=*static_cast<Engine*>(p);if(!e.running)return -1;
         return th20::ios::apply_unlock_code(code);

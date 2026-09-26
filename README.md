@@ -41,14 +41,18 @@ The device build is written to `build-native-iphoneos/Release-iphoneos/th20_ios_
 
 ## Touch controls
 
-Settings provide `Hybrid`, `Drag`, and `Joystick` movement modes, a `No Button` option, freely movable controls, left-handed layout, frame-rate selection, and render-quality settings.
+Settings provide `Hybrid`, `Drag`, and `Joystick` movement modes, a `No Button` option, freely movable controls, drag-to-shoot, an always-visible hitbox, battle-only pinch zoom, left-handed layout, frame-rate selection, and render-quality settings.
 
 - `Z`: shoot / confirm
 - `S`: focus movement
 - `X`: bomb / back
 - Two-finger tap during gameplay: bomb
+- Two-finger long press during gameplay: hold `S` until released
 - Three-finger long press during gameplay: pause
+- Four-finger pinch during gameplay: adjust the native battlefield camera from 0.1× to 3× without scaling the HUD (when enabled)
 - Two-finger tap in menus: back
+
+Zooming out extends the offscreen lifetime of enemies and bullets to the visible camera bounds. Changing zoom while recording or playing a replay can affect replay consistency.
 
 ## Developer menu and Auto Bomb
 
@@ -131,14 +135,18 @@ bash ios/build_ios.sh
 
 ## 触摸操作
 
-设置支持 `Hybrid`、`Drag` 和 `Joystick` 三种移动方式，也支持 `No Button`、自由调整按键与摇杆位置、左手布局、帧率和画面清晰度设置。
+设置支持 `Hybrid`、`Drag` 和 `Joystick` 三种移动方式，也支持 `No Button`、自由调整按键与摇杆位置、拖拽时自动射击、始终显示判定点、仅缩放战斗画面、左手布局、帧率和画面清晰度设置。
 
 - `Z`：射击 / 确认
 - `S`：低速移动
 - `X`：符卡 / 返回
 - 战斗中双指轻按：释放符卡
+- 战斗中双指长按：按住 `S`，松手后释放
 - 战斗中三指长按：暂停
+- 开启缩放后，战斗中四指张合：在 0.1–3 倍间调整原生战斗视野，计分栏保持原大小
 - 菜单中双指轻按：返回
+
+缩小视野时，敌机和子弹会在扩展的可见范围内继续存在。录制或播放回放时更改缩放倍率，可能影响回放一致性。
 
 ## 开发者菜单与自动符卡
 

@@ -54,6 +54,8 @@ typedef struct TH20IOSCallbacks {
     void (*combat_options)(void *userdata, bool developer, bool autobomb);
     int (*dev_action)(void *userdata, int action);
     bool (*language)(void *userdata, int preference);
+    // Presentation-only player anchor in original 640x480 screen coordinates.
+    bool (*player_anchor)(void *userdata, float *x, float *y, bool *focused);
 } TH20IOSCallbacks;
 
 // Call from the real engine's main(). There is deliberately no placeholder main.
@@ -74,6 +76,11 @@ void th20_ios_set_combat_scene(bool active);
 void th20_ios_set_logical_size(int width, int height);
 void th20_ios_clear_input(void);
 void th20_ios_open_settings(void);
+// Visual-only option read by the native player renderer on the game thread.
+bool th20_ios_always_show_hitbox(void);
+// Camera projection uses the original logical coordinates.
+bool th20_ios_battle_camera(float *zoom, float *anchor_x, float *anchor_y);
+bool th20_ios_extended_battle_bounds(float *left, float *top, float *right, float *bottom);
 // Recovered input backend exports. Bind the host key callback to key_event;
 // invoke clear_keys on scene/lifecycle resets to drop pending sampled edges.
 void th20_ios_key_event(unsigned virtual_key, int down);

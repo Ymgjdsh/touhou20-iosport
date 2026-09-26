@@ -1,9 +1,11 @@
 param(
     [ValidateSet('iphoneos','iphonesimulator')][string]$Sdk='iphoneos',
-    [ValidateSet('th20_ios_platform','th20_ios_archive','th20_ios_engine','th20_ios_host_probe','th20_ios_game')][string]$Target='th20_ios_game',
-    [string]$ConnectionFile='F:\th06\th07项目\th07-ios14-port\ios\mac_build.local.psd1'
+    [ValidateSet('th20_ios_platform','th20_ios_archive','th20_ios_engine','th20_ios_host_probe','th20_ios_game','th20_ios_game_smoke')][string]$Target='th20_ios_game',
+    [string]$ConnectionFile=$env:TH20_MAC_CONNECTION_FILE
 )
 $ErrorActionPreference='Stop'
+$ConnectionFile=if($ConnectionFile){$ConnectionFile}else{Join-Path $PSScriptRoot 'mac_build.local.psd1'}
+if(-not (Test-Path -LiteralPath $ConnectionFile)){throw 'Set TH20_MAC_CONNECTION_FILE or pass -ConnectionFile with a local Mac connection file'}
 $root=Split-Path -Parent $PSScriptRoot
 $connection=Import-PowerShellDataFile -LiteralPath $ConnectionFile
 $destination="$($connection.MacUser)@$($connection.MacHost)"

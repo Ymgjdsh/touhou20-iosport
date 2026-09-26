@@ -10,6 +10,9 @@ namespace pe=program_entry;
 void select_layer_viewport(pe::GraphicsStatePrefix& graphics,int index) {
     auto& viewport=graphics.viewports[index];graphics.current_viewport=&viewport;
     platform_window::update_camera(viewport,viewport.adjusted_viewport);
+#if defined(TH20_IOS)
+    if(index==0||index==1||index==5)platform_window::apply_ios_battle_camera(viewport.projection);
+#endif
     platform_window::apply_camera(viewport);graphics.device->SetViewport(&viewport.adjusted_viewport);
     auto& c=*pe::sprite_controller;
     const float x=_mm_cvtss_f32(_mm_cvtsi32_ss(_mm_setzero_ps(),viewport.offset_x));

@@ -60,6 +60,23 @@ for asset in manifest["assets"]:
     path = app / asset["name"]
     if not path.is_file() or path.stat().st_size != asset["bytes"] or digest(path) != asset["sha256"]:
         raise SystemExit(f"Bundled asset mismatch: {asset['name']}")
+translation = app / "Translations" / "zh-Hans"
+translation_count = 0
+if translation.exists():
+    with (translation / "translations.json").open(encoding="utf-8") as source:
+        translated = json.load(source)
+    files = translated.get("files")
+    if translated.get("language") != "zh-Hans" or not isinstance(files, dict):
+        raise SystemExit("Invalid bundled Simplified Chinese manifest")
+    for name, expected in files.items():
+        if Path(name).name != name or not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise SystemExit(f"Invalid translated resource entry: {name}")
+        path = translation / name
+        if not path.is_file() or digest(path) != expected:
+            raise SystemExit(f"Bundled translation mismatch: {name}")
+    if {path.name for path in translation.iterdir() if path.is_file()} != set(files) | {"translations.json"}:
+        raise SystemExit("Bundled translation contains unexpected or missing files")
+    translation_count = len(files)
 output.parent.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="th20-native-package-") as temporary:
     staging = Path(temporary)
@@ -83,6 +100,7 @@ report = {"artifact": output.name, "sha256": digest(output), "bytes": output.sta
           "build": info["CFBundleVersion"], "minimum_ios": info["MinimumOSVersion"],
           "architectures": architectures, "executable_sha256": executable_hash,
           "signature": "ad-hoc; TrollStore installation still requires device verification",
-          "assets": manifest["assets"], "validation_scope": "bundle, architecture, signature, resources, archive integrity; no gameplay certification"}
+          "assets": manifest["assets"], "translation_files": translation_count,
+          "validation_scope": "bundle, architecture, signature, resources, archive integrity; no gameplay certification"}
 output.with_suffix(".manifest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(report, indent=2))

@@ -5,6 +5,7 @@
 #include <cstring>
 #if defined(TH20_IOS)
 #include "../../ios/src/ios_game_input.h"
+#include "../../ios/src/ios_host.h"
 #endif
 namespace th20::source::player_entity {
 namespace {
@@ -33,7 +34,13 @@ int update_movement(Player& player,MovementServices& env){
         }else{player.focused_204c=0;player.fields_20e4[0]=30;}
         // Original immutable table572c48. Components are fixed-point signs.
         constexpr int signs[9][2]{{0,0},{0,-1},{0,1},{-1,0},{1,0},{-1,-1},{1,-1},{-1,1},{1,1}};x=signs[direction][0];y=signs[direction][1];
-        if(player.focused_204c){
+        // Keep the original focus animation visible without changing the
+        // focused flag, movement speed, shot pattern, or replay state.
+        bool show_focus_effect=player.focused_204c!=0;
+#if defined(TH20_IOS)
+        show_focus_effect=show_focus_effect||th20_ios_always_show_hitbox();
+#endif
+        if(show_focus_effect){
             if(!player.handle_60c)player.handle_60c=env.spawn_focus_effect(player);
             if(auto* animation=env.animation(player.handle_60c)){const float scale=(player.entity_flags&16u)?(player.collision_expansion-1.0f)*2.0f+1.0f:1.0f;animation->base.vector_58={scale,scale};animation->base.flags[1]|=4;}
         }else if(env.animation(player.handle_60c)){callbacks.interrupt(player.handle_60c,1);player.handle_60c=0;}

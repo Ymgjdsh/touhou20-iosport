@@ -7,6 +7,8 @@ void key(int virtual_key, bool down) noexcept;
 void touch(TH20IOSTouchPhase, uint64_t id, float x, float y, float dx, float dy);
 void before_frame();
 void after_frame();
+// Read-only screen anchor for presentation effects; never alters simulation.
+bool player_screen_anchor(float& x, float& y, bool& focused) noexcept;
 // Called only from the player's ordinary movement branch, before its fixed
 // position, animation direction, history and option followers are updated.
 void apply_drag(source::player_entity::Player&, int& x, int& y, float clock_scale) noexcept;

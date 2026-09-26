@@ -2,7 +2,11 @@
 #include "data_constants.hpp"
 #include "directx_math.hpp"
 #include <cmath>
+#include <algorithm>
 #include <emmintrin.h>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_host.h"
+#endif
 
 namespace th20::source::platform_window {
 namespace {
@@ -38,6 +42,26 @@ void update_camera(program_entry::ViewportState& v,const D3DVIEWPORT9& rectangle
     directx::look_at(v.view,eye,target,up);
     directx::perspective(v.projection,v.field_of_view,
         div(from_unsigned(rectangle.Width),from_unsigned(rectangle.Height)),1.0f,data::value_00571ea0);
+}
+void apply_ios_battle_camera(D3DMATRIX& projection) {
+#if defined(TH20_IOS)
+    float zoom=1, anchor_x=0, anchor_y=0;
+    if(!th20_ios_battle_camera(&zoom,&anchor_x,&anchor_y)||!std::isfinite(zoom)||zoom==1.f)return;
+    zoom=std::clamp(zoom,.1f,3.f);
+    auto center=[zoom](float anchor) {
+        if(zoom<1.f)return (1.f-zoom)*anchor;
+        const float limit=1.f-1.f/zoom;
+        return std::clamp(anchor,-limit,limit);
+    };
+    const float shift_x=-zoom*center(anchor_x),shift_y=-zoom*center(anchor_y);
+    for(unsigned row=0;row<4;++row){
+        const float w=projection.m[row][3];
+        projection.m[row][0]=zoom*projection.m[row][0]+shift_x*w;
+        projection.m[row][1]=zoom*projection.m[row][1]+shift_y*w;
+    }
+#else
+    (void)projection;
+#endif
 }
 void set_render_offsets(GraphicsStatePrefix& g,int x,int y) {
     auto& w=program_entry::window_state;auto& full=g.viewports[2];auto& play=g.viewports[5];

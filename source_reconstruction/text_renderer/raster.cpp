@@ -8,6 +8,7 @@
 #include <stdexcept>
 #if defined(TH20_IOS)
 #include "native_font.hpp"
+#include "ios_language.h"
 #endif
 #include <emmintrin.h>
 #if defined(TH20_WEB)
@@ -83,6 +84,9 @@ RasterizedText rasterize_text(const RECT& rectangle,std::int32_t x,std::uint32_t
     case 16:case 17:radius=4;top=6;break;case 18:case 19:top=2;break;case 20:case 21:radius=3;top=7;break;}
     radius=_mm_cvtss_f32(_mm_mul_ss(_mm_set_ss(radius),_mm_set_ss(next_outline_scale)));next_outline_scale=1.f;
 #if defined(TH20_IOS)
+    // Chinese strokes are denser at the game's small dialogue size. Keep the
+    // outline for contrast without letting it fill the counters of the glyphs.
+    if(th20::ios::language::effective()==2)radius*=0.55f;
     const int margin=_mm_cvttss_si32(_mm_set_ss(radius));
     const int width=rectangle.right-rectangle.left+3+margin,height=rectangle.bottom-rectangle.top+3+margin;
     if(!bitmap->create_with_fallback(width,height+6,21))throw std::runtime_error("Native text bitmap allocation failed");

@@ -21,16 +21,22 @@ struct Layout {
     Point logical_point(Point point) const {
         // Relative movement may continue outside its original region, while
         // taps on the two header panels still map to their original HUD rows.
-        const Region* region = &regions[portrait_battle ? 2 : 0];
-        for (unsigned i = 0; i != count; ++i)
-            if (regions[i].destination.contains(point)) { region = &regions[i]; break; }
+        const Region* region = &regions[portrait_battle ? 2 : count == 2 ? 1 : 0];
+        // The battlefield has priority where portrait regions meet.
+        for (unsigned i = count; i != 0; --i)
+            if (regions[i - 1].destination.contains(point)) { region = &regions[i - 1]; break; }
         return {region->source.x + (point.x - region->destination.x) * region->source.width / region->destination.width,
                 region->source.y + (point.y - region->destination.y) * region->source.height / region->destination.height};
     }
     Point logical_delta(Point delta) const {
-        const auto& region = regions[portrait_battle ? 2 : 0];
+        const auto& region = regions[portrait_battle ? 2 : count == 2 ? 1 : 0];
         return {delta.x * region.source.width / region.destination.width,
                 delta.y * region.source.height / region.destination.height};
+    }
+    Point display_point(Point point) const {
+        const auto& region = regions[portrait_battle ? 2 : count == 2 ? 1 : 0];
+        return {region.destination.x + (point.x - region.source.x) * region.destination.width / region.source.width,
+                region.destination.y + (point.y - region.source.y) * region.destination.height / region.source.height};
     }
 };
 

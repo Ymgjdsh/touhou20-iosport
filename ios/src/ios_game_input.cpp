@@ -80,6 +80,8 @@ Scene scene() {
 }
 TH20IOSInputMode input_mode(const Scene& s) {
     if(s.help_page||s.key_config)return TH20_IOS_INPUT_MENU;
+    // Ending CG and staff-roll scripts wait for the ordinary confirm input.
+    if(s.current==15)return TH20_IOS_INPUT_DIALOGUE;
     if(s.current==7){
         if(s.pause>0)return TH20_IOS_INPUT_MENU;
         if(s.dialogue)return TH20_IOS_INPUT_DIALOGUE;
@@ -113,6 +115,7 @@ void sync_scene() {
         now.current,now.pending,now.title,now.phase,now.pause,now.substate,now.stone,int(mode));
     if(now.current==4&&now.phase==2)th20_ios_set_stage("TH20 title");
     else if(now.current==7)th20_ios_set_stage(now.pause>0?"TH20 paused":now.dialogue?"TH20 dialogue":"TH20 gameplay");
+    else if(now.current==15)th20_ios_set_stage("TH20 ending");
 }
 bool rectangle(float x,float y,float left,float top,float width,float height) {
     return width>0&&height>0&&x>=left&&x<=left+width&&y>=top&&y<=top+height;
@@ -527,6 +530,13 @@ void touch(TH20IOSTouchPhase phase,uint64_t id,float x,float y,float dx,float dy
 }
 void before_frame(){sync_scene();navigate();}
 void after_frame(){sync_scene();}
+bool player_screen_anchor(float& x,float& y,bool& focused) noexcept {
+    auto* p=player();
+    if(!p||p->state!=1)return false;
+    x=224.f+p->position_614.x;y=16.f+p->position_614.y;
+    focused=p->focused_204c!=0;
+    return std::isfinite(x)&&std::isfinite(y);
+}
 void apply_drag(source::player_entity::Player& p,int& x,int& y,float rate) noexcept {
     if(p.view_index!=0||p.state!=1||mode!=TH20_IOS_INPUT_GAMEPLAY){drag.clear();return;}
     const float scale=pe::window_state.scale;

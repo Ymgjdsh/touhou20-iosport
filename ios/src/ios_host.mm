@@ -128,6 +128,9 @@ uint64_t residentBytes() {
 @property(nonatomic) NSTimeInterval gestureStarted;
 @property(nonatomic) BOOL gestureInvalid;
 @property(nonatomic) BOOL gestureHadThird;
+@property(nonatomic) BOOL gestureSlowHeld;
+@property(nonatomic) BOOL gestureMovementLocked;
+@property(nonatomic) double pinchDistance;
 @property(nonatomic) uint64_t touchID;
 @property(nonatomic) uint64_t nextTouchID;
 @property(nonatomic) TH20IOSInputMode inputMode;
@@ -140,7 +143,9 @@ uint64_t residentBytes() {
 @property(nonatomic) BOOL modalPaused;
 @property(nonatomic) BOOL enginePaused;
 @property(nonatomic) BOOL shotHeld;
+@property(nonatomic) BOOL shotButtonDown;
 @property(nonatomic) BOOL slowHeld;
+@property(nonatomic) BOOL slowButtonDown;
 @property(nonatomic) BOOL bombHeld;
 @property(nonatomic) BOOL pauseHeld;
 @property(nonatomic) BOOL shotLatched;
@@ -155,7 +160,11 @@ uint64_t residentBytes() {
 @property(nonatomic) BOOL haptics;
 @property(nonatomic) NSInteger controlMode;
 @property(nonatomic) BOOL autoShot;
+@property(nonatomic) BOOL dragAutoShot;
 @property(nonatomic) BOOL autoSlow;
+@property(nonatomic) BOOL alwaysShowHitbox;
+@property(nonatomic) BOOL battleZoomEnabled;
+@property(nonatomic) float battleZoom;
 @property(nonatomic) BOOL autoBomb;
 @property(nonatomic) BOOL developerMode;
 @property(nonatomic) BOOL devInvincible;
@@ -197,7 +206,9 @@ uint64_t residentBytes() {
 - (void)updateControlColors;
 - (void)sendKey:(int)key down:(BOOL)down;
 - (void)applyAutomaticInput;
+- (void)syncHeldControls;
 - (void)applyDisplaySettings;
+- (th20::ios::presentation::Layout)layoutForSize:(CGSize)size sourceWidth:(double)width sourceHeight:(double)height;
 - (void)beginLayoutEditing;
 - (NSString *)layoutOrientation;
 - (void)openSettings;
@@ -373,8 +384,7 @@ uint64_t residentBytes() {
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    auto layout = th20::ios::presentation::make_layout(self.bounds.size.width, self.bounds.size.height, width, height,
-        [self.owner usesPortraitBattleLayout], self.owner.view.safeAreaInsets.top);
+    auto layout = [self.owner layoutForSize:self.bounds.size sourceWidth:width sourceHeight:height];
     const double outputX = self.pixelWidth / self.bounds.size.width, outputY = self.pixelHeight / self.bounds.size.height;
     for (unsigned index = 0; index != layout.count; ++index) {
         const auto& src = layout.regions[index].source;
@@ -431,6 +441,8 @@ uint64_t residentBytes() {
                                 @"shotToggle": @NO, @"slowToggle": @NO, @"renderScale": @1.0,
                                 @"buttonSize": @1.0, @"controlsVisible": @YES, @"leftHanded": @NO, @"haptics": @NO,
                                 @"controlMode": @2, @"autoShot": @NO, @"autoSlow": @NO,
+                                @"dragAutoShot": @NO, @"alwaysShowHitbox": @NO, @"battleZoomEnabled": @NO,
+                                @"battleZoom": @1.0,
                                 @"joystickDeadzone": @0.18, @"controlHeight": @0.0,
                                 @"displayFPS": @60, @"smoothScaling": @YES, @"showPerformance": @NO}];
     self.sensitivity = std::clamp([defaults floatForKey:@"touchSensitivity"], 0.25f, 3.0f);
@@ -441,6 +453,11 @@ uint64_t residentBytes() {
     self.haptics = [defaults boolForKey:@"haptics"];
     self.controlMode = std::clamp([defaults integerForKey:@"controlMode"], NSInteger(0), NSInteger(2));
     self.autoShot = [defaults boolForKey:@"autoShot"]; self.autoSlow = [defaults boolForKey:@"autoSlow"];
+    self.dragAutoShot = [defaults boolForKey:@"dragAutoShot"];
+    self.alwaysShowHitbox = [defaults boolForKey:@"alwaysShowHitbox"];
+    self.battleZoomEnabled = [defaults boolForKey:@"battleZoomEnabled"];
+    self.battleZoom = std::clamp([defaults floatForKey:@"battleZoom"], 0.1f, 3.f);
+    if (!std::isfinite(self.battleZoom)) self.battleZoom = 1;
     self.autoBomb = [defaults boolForKey:@"autoBomb"]; self.developerMode = [defaults boolForKey:@"developerMode"];
     [self syncCombatOptions];
     self.joystickDeadzone = std::clamp([defaults floatForKey:@"joystickDeadzone"], 0.1f, 0.4f);
@@ -674,8 +691,17 @@ uint64_t residentBytes() {
 }
 - (void)applyAutomaticInput {
     if (!self.ready || !self.appActive || self.modalPaused || self.inputMode != TH20_IOS_INPUT_GAMEPLAY) return;
-    if (self.autoShot && !self.shotHeld) { self.shotHeld = YES; [self sendKey:0x5a down:YES]; }
-    if (self.autoSlow && !self.slowHeld) { self.slowHeld = YES; [self sendKey:0x10 down:YES]; }
+    [self syncHeldControls];
+}
+- (void)syncHeldControls {
+    if (self.inputMode != TH20_IOS_INPUT_GAMEPLAY || !self.ready || self.modalPaused) return;
+    const BOOL dragging = self.moveTouch && !self.suppressTouches && (self.controlMode != 0 || !self.controlsVisible);
+    const BOOL shot = self.autoShot || self.shotLatched || self.shotButtonDown || (self.dragAutoShot && dragging);
+    const BOOL slow = self.autoSlow || self.slowLatched || self.slowButtonDown || self.gestureSlowHeld;
+    const BOOL changed = shot != self.shotHeld || slow != self.slowHeld;
+    if (shot != self.shotHeld) { self.shotHeld = shot; [self sendKey:0x5a down:shot]; }
+    if (slow != self.slowHeld) { self.slowHeld = slow; [self sendKey:0x10 down:slow]; }
+    if (changed) [self updateControlColors];
 }
 - (NSString *)layoutOrientation { return self.view.bounds.size.width >= self.view.bounds.size.height ? @"landscape" : @"portrait"; }
 - (BOOL)usesPortraitBattleLayout {
@@ -683,6 +709,10 @@ uint64_t residentBytes() {
     // explicitly excludes Options/Help/Key Config and title transitions.
     return self.combatScene && logicalWidth * 3 == logicalHeight * 4 &&
         self.view.bounds.size.height > self.view.bounds.size.width;
+}
+- (th20::ios::presentation::Layout)layoutForSize:(CGSize)size sourceWidth:(double)width sourceHeight:(double)height {
+    return th20::ios::presentation::make_layout(size.width, size.height, width, height,
+        self.combatScene, self.view.safeAreaInsets.top);
 }
 - (void)beginLayoutEditing {
     [self clearInput]; self.modalPaused = YES; [self applyPausedState]; self.editingLayout = YES;
@@ -848,13 +878,19 @@ uint64_t residentBytes() {
     BOOL gameplay = self.inputMode == TH20_IOS_INPUT_GAMEPLAY;
     switch (button.tag) {
         case 0:
-            if (gameplay && self.shotToggle && !self.autoShot) self.shotLatched = !self.shotLatched;
-            self.shotHeld = gameplay && self.autoShot ? YES : (gameplay && self.shotToggle ? self.shotLatched : YES);
-            [self sendKey:0x5a down:self.shotHeld]; break;
+            if (gameplay) {
+                if (self.shotToggle && !self.autoShot) self.shotLatched = !self.shotLatched;
+                else self.shotButtonDown = YES;
+                [self syncHeldControls];
+            } else [self sendKey:0x5a down:YES];
+            break;
         case 1:
-            if (gameplay && self.slowToggle && !self.autoSlow) self.slowLatched = !self.slowLatched;
-            self.slowHeld = gameplay && self.autoSlow ? YES : (gameplay && self.slowToggle ? self.slowLatched : YES);
-            [self sendKey:0x10 down:self.slowHeld]; break;
+            if (gameplay) {
+                if (self.slowToggle && !self.autoSlow) self.slowLatched = !self.slowLatched;
+                else self.slowButtonDown = YES;
+                [self syncHeldControls];
+            } else [self sendKey:0x10 down:YES];
+            break;
         case 2: self.bombHeld = YES; [self sendKey:0x58 down:YES]; break;
         case 3:
             [self clearInput]; self.pauseHeld = YES; [self sendKey:0x1b down:YES]; break;
@@ -865,16 +901,15 @@ uint64_t residentBytes() {
 - (void)buttonUp:(UIButton *)button {
     BOOL gameplay = self.inputMode == TH20_IOS_INPUT_GAMEPLAY;
     switch (button.tag) {
-        case 0: if (!(gameplay && (self.shotToggle || self.autoShot))) { self.shotHeld = NO; [self sendKey:0x5a down:NO]; } break;
-        case 1: if (!(gameplay && (self.slowToggle || self.autoSlow))) { self.slowHeld = NO; [self sendKey:0x10 down:NO]; } break;
+        case 0: if (gameplay) { self.shotButtonDown = NO; [self syncHeldControls]; } else [self sendKey:0x5a down:NO]; break;
+        case 1: if (gameplay) { self.slowButtonDown = NO; [self syncHeldControls]; } else [self sendKey:0x10 down:NO]; break;
         case 2: self.bombHeld = NO; [self sendKey:0x58 down:NO]; break;
     }
     [self updateControlColors];
 }
 - (CGPoint)logicalPoint:(CGPoint)point {
     CGSize size = self.gameView.bounds.size;
-    const auto layout = th20::ios::presentation::make_layout(size.width, size.height, logicalWidth, logicalHeight,
-        [self usesPortraitBattleLayout], self.view.safeAreaInsets.top);
+    const auto layout = [self layoutForSize:size sourceWidth:logicalWidth sourceHeight:logicalHeight];
     const auto logical = layout.logical_point({point.x, point.y});
     return CGPointMake(logical.x, logical.y);
 }
@@ -882,12 +917,25 @@ uint64_t residentBytes() {
     if (!callbacks.touch || !self.engineAvailable) return;
     CGPoint logical = [self logicalPoint:point];
     CGSize size = self.gameView.bounds.size;
-    const auto layout = th20::ios::presentation::make_layout(size.width, size.height, logicalWidth, logicalHeight,
-        [self usesPortraitBattleLayout], self.view.safeAreaInsets.top);
+    const auto layout = [self layoutForSize:size sourceWidth:logicalWidth sourceHeight:logicalHeight];
     const auto logicalDelta = layout.logical_delta({delta.x, delta.y});
     CGFloat sensitivity = phase == TH20_IOS_TOUCH_MENU_SWIPE ? 1 : self.sensitivity;
     callbacks.touch(callbacks.userdata, phase, self.touchID, logical.x, logical.y,
                     logicalDelta.x * sensitivity, logicalDelta.y * sensitivity);
+}
+- (double)gestureSpan {
+    if (self.gestureTouches.count != 4) return 0;
+    CGPoint center = CGPointZero;
+    for (UITouch *touch in self.gestureTouches) {
+        CGPoint point = [touch locationInView:self.gameView]; center.x += point.x; center.y += point.y;
+    }
+    center.x /= 4; center.y /= 4;
+    double sum = 0;
+    for (UITouch *touch in self.gestureTouches) {
+        CGPoint point = [touch locationInView:self.gameView];
+        sum += std::hypot(point.x - center.x, point.y - center.y);
+    }
+    return sum / 4;
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches event:(UIEvent *)event {
     if (!self.ready || self.modalPaused || self.fatalError || self.inputMode == TH20_IOS_INPUT_LOADING) return;
@@ -898,11 +946,19 @@ uint64_t residentBytes() {
             self.gestureHadThird = YES;
         }
         [self.gestureTimer invalidate]; self.gestureTimer = nil;
+        if (self.gestureSlowHeld) { self.gestureSlowHeld = NO; [self syncHeldControls]; }
+        if (self.moveTouch && self.gestureTouches.count >= 3) {
+            [self emitTouch:TH20_IOS_TOUCH_CANCEL point:self.previousPoint delta:CGPointZero];
+            self.moveTouch = nil; self.suppressTouches = YES;
+            [self syncHeldControls];
+        }
         if (self.gestureTouches.count == 3 && !self.gestureInvalid &&
             touches.anyObject.timestamp - self.gestureStarted < 0.35) {
             self.gestureTimer = [NSTimer timerWithTimeInterval:0.6 target:self selector:@selector(threeFingerPause:)
                                                  userInfo:nil repeats:NO];
             [NSRunLoop.mainRunLoop addTimer:self.gestureTimer forMode:NSRunLoopCommonModes];
+        } else if (self.gestureTouches.count == 4 && self.battleZoomEnabled) {
+            self.gestureInvalid = YES; self.pinchDistance = [self gestureSpan];
         } else self.gestureInvalid = YES;
         return;
     }
@@ -913,25 +969,43 @@ uint64_t residentBytes() {
         ++active; earliest = std::min(earliest, candidate.timestamp); latest = std::max(latest, candidate.timestamp);
     }
     if (active <= 1) self.suppressTouches = NO;
-    if (active >= 2 && !self.suppressTouches && latest - (self.moveTouch ? self.touchStart : earliest) < 0.22) {
+    if (active >= 2 && !self.suppressTouches &&
+        (self.inputMode == TH20_IOS_INPUT_GAMEPLAY || latest - (self.moveTouch ? self.touchStart : earliest) < 0.22)) {
         if (self.inputMode == TH20_IOS_INPUT_GAMEPLAY) {
-            if (self.moveTouch && (self.controlMode != 0 || !self.controlsVisible))
+            if (active >= 3 && self.moveTouch && (self.controlMode != 0 || !self.controlsVisible))
                 [self emitTouch:TH20_IOS_TOUCH_CANCEL point:self.previousPoint delta:CGPointZero];
-            self.moveTouch = nil; self.suppressTouches = YES;
+            if (active >= 3) { self.moveTouch = nil; self.suppressTouches = YES; [self syncHeldControls]; }
+            else if (!self.moveTouch) {
+                for (UITouch *candidate in event.allTouches) if (candidate.view == self.gameView &&
+                    candidate.phase != UITouchPhaseEnded && candidate.phase != UITouchPhaseCancelled) {
+                    self.moveTouch = candidate; break;
+                }
+                if (self.moveTouch) {
+                    self.touchID = ++self.nextTouchID;
+                    self.startPoint = self.previousPoint = [self.moveTouch locationInView:self.gameView];
+                    self.touchStart = self.moveTouch.timestamp;
+                    if (self.controlMode != 0 || !self.controlsVisible)
+                        [self emitTouch:TH20_IOS_TOUCH_BEGIN point:self.previousPoint delta:CGPointZero];
+                }
+            }
             self.gestureTouches = [NSMutableSet new];
             self.gestureOrigins = [NSMapTable strongToStrongObjectsMapTable];
             self.gestureStarted = earliest; self.gestureInvalid = active > 3;
             self.gestureHadThird = active >= 3;
+            self.gestureMovementLocked = NO;
             for (UITouch *touch in event.allTouches) if (touch.view == self.gameView &&
                 touch.phase != UITouchPhaseEnded && touch.phase != UITouchPhaseCancelled) {
                 [self.gestureTouches addObject:touch];
                 [self.gestureOrigins setObject:[NSValue valueWithCGPoint:[touch locationInView:self.gameView]] forKey:touch];
             }
-            if (active == 3) {
-                self.gestureTimer = [NSTimer timerWithTimeInterval:0.6 target:self selector:@selector(threeFingerPause:)
-                                                     userInfo:nil repeats:NO];
+            if (active == 4 && self.battleZoomEnabled) self.pinchDistance = [self gestureSpan];
+            if (active == 2 || active == 3) {
+                self.gestureTimer = [NSTimer timerWithTimeInterval:active == 2 ? 0.48 : 0.6
+                    target:self selector:active == 2 ? @selector(twoFingerSlow:) : @selector(threeFingerPause:)
+                    userInfo:nil repeats:NO];
                 [NSRunLoop.mainRunLoop addTimer:self.gestureTimer forMode:NSRunLoopCommonModes];
             }
+            [self syncHeldControls];
         } else {
             [self clearInput]; self.suppressTouches = YES;
             [self sendKey:0x1b down:YES]; [self sendKey:0x1b down:NO];
@@ -946,9 +1020,48 @@ uint64_t residentBytes() {
     self.touchStart = touch.timestamp; self.touchScrolled = NO;
     if (self.inputMode == TH20_IOS_INPUT_GAMEPLAY && (self.controlMode != 0 || !self.controlsVisible))
         [self emitTouch:TH20_IOS_TOUCH_BEGIN point:self.previousPoint delta:CGPointZero];
+    [self syncHeldControls];
 }
 - (void)touchesMoved:(NSSet<UITouch *> *)touches event:(UIEvent *)event {
     if (self.gestureTouches.count) {
+        if (self.gestureTouches.count == 4 && self.battleZoomEnabled && self.pinchDistance > 0) {
+            double span = [self gestureSpan];
+            if (span > 0 && std::isfinite(span)) {
+                self.battleZoom = std::clamp(float(self.battleZoom * span / self.pinchDistance), 0.1f, 3.f);
+                self.pinchDistance = span;
+            }
+            return;
+        }
+        if (self.gestureTouches.count == 2 && (self.controlMode != 0 || !self.controlsVisible)) {
+            if (!self.gestureMovementLocked) {
+                UITouch *candidate = nil;
+                for (UITouch *touch in touches) if ([self.gestureTouches containsObject:touch]) {
+                    CGPoint origin = [[self.gestureOrigins objectForKey:touch] CGPointValue];
+                    CGPoint point = [touch locationInView:self.gameView];
+                    if (std::hypot(point.x - origin.x, point.y - origin.y) <= 18) continue;
+                    if (touch == self.moveTouch) { candidate = touch; break; }
+                    candidate = touch;
+                }
+                if (candidate) {
+                    self.gestureInvalid = YES; self.gestureMovementLocked = YES;
+                    if (candidate != self.moveTouch) {
+                        if (self.moveTouch)
+                            [self emitTouch:TH20_IOS_TOUCH_CANCEL point:self.previousPoint delta:CGPointZero];
+                        self.moveTouch = candidate; self.touchID = ++self.nextTouchID;
+                        self.previousPoint = [[self.gestureOrigins objectForKey:candidate] CGPointValue];
+                        self.startPoint = self.previousPoint; self.touchStart = candidate.timestamp;
+                        [self emitTouch:TH20_IOS_TOUCH_BEGIN point:self.previousPoint delta:CGPointZero];
+                    }
+                }
+            }
+            if (self.moveTouch && [touches containsObject:self.moveTouch]) {
+                CGPoint point = [self.moveTouch locationInView:self.gameView];
+                CGPoint delta = CGPointMake(point.x - self.previousPoint.x, point.y - self.previousPoint.y);
+                self.previousPoint = point;
+                [self emitTouch:TH20_IOS_TOUCH_MOVE point:point delta:delta];
+            }
+            return;
+        }
         for (UITouch *touch in touches) if ([self.gestureTouches containsObject:touch]) {
             CGPoint origin = [[self.gestureOrigins objectForKey:touch] CGPointValue];
             CGPoint point = [touch locationInView:self.gameView];
@@ -965,8 +1078,7 @@ uint64_t residentBytes() {
     self.previousPoint = point;
     if (self.inputMode == TH20_IOS_INPUT_MENU) {
         CGPoint movement = CGPointMake(point.x - self.swipeOrigin.x, point.y - self.swipeOrigin.y);
-        const auto layout = th20::ios::presentation::make_layout(self.gameView.bounds.size.width, self.gameView.bounds.size.height,
-            logicalWidth, logicalHeight, [self usesPortraitBattleLayout], self.view.safeAreaInsets.top);
+        const auto layout = [self layoutForSize:self.gameView.bounds.size sourceWidth:logicalWidth sourceHeight:logicalHeight];
         const auto logical = layout.logical_delta({movement.x, movement.y});
         const auto factor = layout.logical_delta({1, 1});
         CGFloat distance = std::max(std::abs(logical.x), std::abs(logical.y));
@@ -987,14 +1099,44 @@ uint64_t residentBytes() {
 - (void)touchesEnded:(NSSet<UITouch *> *)touches cancelled:(BOOL)cancelled {
     if (self.gestureTouches.count) {
         if (cancelled) self.gestureInvalid = YES;
+        UITouch *endingMoveTouch = self.moveTouch;
+        if (self.moveTouch && [touches containsObject:self.moveTouch] &&
+            (self.controlMode != 0 || !self.controlsVisible)) {
+            CGPoint point = [self.moveTouch locationInView:self.gameView];
+            CGPoint delta = CGPointMake(point.x - self.previousPoint.x, point.y - self.previousPoint.y);
+            if (!cancelled && (delta.x != 0 || delta.y != 0))
+                [self emitTouch:TH20_IOS_TOUCH_MOVE point:point delta:delta];
+            [self emitTouch:cancelled ? TH20_IOS_TOUCH_CANCEL : TH20_IOS_TOUCH_END point:point delta:CGPointZero];
+            self.moveTouch = nil;
+        }
         for (UITouch *touch in touches) if ([self.gestureTouches containsObject:touch]) {
             CGPoint origin = [[self.gestureOrigins objectForKey:touch] CGPointValue];
             CGPoint point = [touch locationInView:self.gameView];
-            if (std::hypot(point.x - origin.x, point.y - origin.y) > 18) self.gestureInvalid = YES;
+            if (touch != endingMoveTouch && std::hypot(point.x - origin.x, point.y - origin.y) > 18)
+                self.gestureInvalid = YES;
             [self.gestureTouches removeObject:touch];
             [self.gestureOrigins removeObjectForKey:touch];
         }
         if (self.gestureTouches.count < 3) { [self.gestureTimer invalidate]; self.gestureTimer = nil; }
+        if (self.gestureTouches.count < 2 && self.gestureSlowHeld) {
+            self.gestureSlowHeld = NO; [self syncHeldControls];
+        }
+        if (self.gestureTouches.count < 4 && self.pinchDistance) {
+            self.pinchDistance = 0;
+            [NSUserDefaults.standardUserDefaults setFloat:self.battleZoom forKey:@"battleZoom"];
+        }
+        if (self.gestureTouches.count == 1 && self.gestureInvalid && !self.gestureHadThird) {
+            if (!self.moveTouch && (self.controlMode != 0 || !self.controlsVisible)) {
+                UITouch *remaining = self.gestureTouches.anyObject;
+                self.moveTouch = remaining; self.touchID = ++self.nextTouchID;
+                self.startPoint = self.previousPoint = [remaining locationInView:self.gameView];
+                self.touchStart = remaining.timestamp;
+                [self emitTouch:TH20_IOS_TOUCH_BEGIN point:self.previousPoint delta:CGPointZero];
+            }
+            self.gestureOrigins = nil; self.gestureTouches = nil; self.suppressTouches = NO;
+            [self syncHeldControls];
+            return;
+        }
         if (!self.gestureTouches.count) {
             if (!self.gestureInvalid && !self.gestureHadThird &&
                 touches.anyObject.timestamp - self.gestureStarted <= 0.35 &&
@@ -1003,6 +1145,8 @@ uint64_t residentBytes() {
                 th20_ios_log("input two-finger bomb");
             }
             self.gestureOrigins = nil; self.gestureTouches = nil; self.suppressTouches = NO;
+            self.gestureMovementLocked = NO;
+            [self syncHeldControls];
         }
         return;
     }
@@ -1022,6 +1166,14 @@ uint64_t residentBytes() {
         [self emitTouch:cancelled ? TH20_IOS_TOUCH_CANCEL : TH20_IOS_TOUCH_END point:point delta:CGPointZero];
     }
     self.moveTouch = nil;
+    [self syncHeldControls];
+}
+- (void)twoFingerSlow:(NSTimer *)timer {
+    if (timer != self.gestureTimer || self.gestureTouches.count != 2 || self.gestureHadThird ||
+        self.inputMode != TH20_IOS_INPUT_GAMEPLAY || !self.ready || self.modalPaused) return;
+    self.gestureTimer = nil; self.gestureInvalid = YES; self.gestureSlowHeld = YES;
+    [self syncHeldControls];
+    th20_ios_log("input two-finger long-press slow");
 }
 - (void)threeFingerPause:(NSTimer *)timer {
     if (timer != self.gestureTimer || self.gestureTouches.count != 3 || self.gestureInvalid ||
@@ -1033,6 +1185,7 @@ uint64_t residentBytes() {
 - (void)clearInput {
     [self.gestureTimer invalidate]; self.gestureTimer = nil;
     self.gestureTouches = nil; self.gestureOrigins = nil; self.suppressTouches = NO;
+    self.pinchDistance = 0; self.gestureMovementLocked = NO;
     [self.joystick reset];
     if (self.moveTouch && self.inputMode != TH20_IOS_INPUT_MENU)
         [self emitTouch:TH20_IOS_TOUCH_CANCEL point:self.previousPoint delta:CGPointZero];
@@ -1043,6 +1196,7 @@ uint64_t residentBytes() {
         for (int key : {0x5a, 0x10, 0x58, 0x1b, 0x25, 0x26, 0x27, 0x28}) callbacks.key(callbacks.userdata, key, false);
     if (callbacks.clear_input && self.engineAvailable) callbacks.clear_input(callbacks.userdata);
     self.shotHeld = self.slowHeld = self.bombHeld = self.pauseHeld = self.shotLatched = self.slowLatched = NO;
+    self.shotButtonDown = self.slowButtonDown = self.gestureSlowHeld = NO;
     [self updateControlColors];
 }
 - (void)setMode:(TH20IOSInputMode)mode {
@@ -1148,7 +1302,7 @@ uint64_t residentBytes() {
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 6; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    const NSInteger counts[] = {8, 6, 4, 4, 1, 1}; return counts[section];
+    const NSInteger counts[] = {9, 6, 6, 4, 1, 1}; return counts[section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     return @[@"操作方式", @"摇杆与按键", @"画面与性能", @"手势与诊断", @"Cheat Code", @"语言 / 言語"][section];
@@ -1157,7 +1311,7 @@ uint64_t residentBytes() {
     if (section == 5) return th20::ios::language::available() ? @"首次启动默认跟随系统：中文系统使用简体中文，其余使用日文。手动选择会保存。切换后重新载入主菜单；战斗中会先询问。\n初回はシステム言語に従います。切替後はタイトルへ戻ります。" : @"此构建未包含汉化资源。中文语言包需在构建时导入。";
     if (section == 0) return @"Hybrid：摇杆或拖动均可移动。Drag：相对拖动。Joystick：仅使用摇杆。No Button 隐藏操作控件，设置入口始终保留。";
     if (section == 1) return @"自由布局分别保存横屏和竖屏位置。左手布局改变默认位置；已自定义的位置以保存结果为准。";
-    if (section == 2) return @"横屏和主菜单保持原始比例。竖屏战斗将状态栏移至顶部，战斗区域铺满下方。30 FPS 降低显示频率，游戏逻辑仍以 60 Hz 更新；降低显示清晰度可减少输出画面的开销。";
+    if (section == 2) return @"横屏和主菜单保持原始比例。竖屏战斗将状态栏移至顶部，战斗区域铺满下方。四指张合仅缩放战斗区域，状态栏不变。30 FPS 降低显示频率，游戏逻辑仍以 60 Hz 更新。";
     return nil;
 }
 - (UITableViewCell *)baseCell:(NSString *)title detail:(NSString *)detail {
@@ -1219,6 +1373,7 @@ uint64_t residentBytes() {
             case 5: return [self switchCell:@"自动射击" detail:@"进入战斗后自动按住 Z" tag:3 value:owner.autoShot];
             case 6: return [self switchCell:@"自动低速" detail:@"进入战斗后自动按住 S" tag:4 value:owner.autoSlow];
             case 7: return [self switchCell:@"Auto Bomb / 自动符卡" detail:@"碰撞受击时，在死亡判定与音效前自动释放符卡；消耗现有符卡，无符卡时正常受击。" tag:9 value:owner.autoBomb];
+            case 8: return [self switchCell:@"拖拽移动时自动射击" detail:@"触摸拖动自机期间按住 Z；松手后恢复原有射击状态" tag:11 value:owner.dragAutoShot];
         }
     }
     if (path.section == 1) {
@@ -1237,11 +1392,13 @@ uint64_t residentBytes() {
             case 1: return [self segmentCell:@"显示清晰度" items:@[@"50%", @"75%", @"100%"] tag:2 selected:owner.renderScale < 0.625f ? 0 : owner.renderScale < 0.875f ? 1 : 2];
             case 2: return [self switchCell:@"平滑缩放" detail:@"关闭时使用清晰的像素边缘" tag:7 value:owner.smoothScaling];
             case 3: return [self switchCell:@"显示性能信息" detail:@"帧率、更新频率和内存" tag:8 value:owner.showPerformance];
+            case 4: return [self switchCell:@"始终显示自机判定点" detail:@"不按 S 时也显示判定点，不改变移动速度" tag:12 value:owner.alwaysShowHitbox];
+            case 5: return [self switchCell:@"缩放战斗画面" detail:@"战斗中四指张合可在 0.1–3 倍间调整战斗视野；计分板保持原大小" tag:13 value:owner.battleZoomEnabled];
         }
     }
     if (path.section == 3) {
         if (path.row == 3) return [self switchCell:@"开发者模式" detail:@"战斗画面显示 DEV 入口：无敌、最高分、道具、火力、残机与符卡、清弹。" tag:10 value:owner.developerMode];
-        if (path.row == 0) return [self baseCell:@"Z：射击 / 确认 · X：符卡 / 返回 · S：低速" detail:@"轻点菜单选项直接选择；上下连续滑动切换列表，左右滑动切换分页或数值。对话时轻点画面继续。战斗中双指轻按放符卡、三指长按暂停；菜单和设置中双指轻点返回。"];
+        if (path.row == 0) return [self baseCell:@"Z：射击 / 确认 · X：符卡 / 返回 · S：低速" detail:@"轻点菜单选项直接选择；上下连续滑动切换列表，左右滑动切换分页或数值。对话与结局时轻点画面继续。战斗中双指轻按放符卡、双指长按 S、三指长按暂停；开启缩放后四指张合缩放战斗画面。菜单和设置中双指轻点返回。"];
         UITableViewCell *cell = [self baseCell:path.row == 1 ? @"导出本次诊断日志" : @"恢复默认设置与按键布局" detail:nil];
         cell.textLabel.textColor = UIColor.systemBlueColor; cell.selectionStyle = UITableViewCellSelectionStyleDefault; return cell;
     }
@@ -1270,7 +1427,7 @@ uint64_t residentBytes() {
 }
 - (void)toggleChanged:(UISwitch *)control {
     [self.owner clearInput];
-    NSArray *keys = @[@"controlsVisible", @"shotToggle", @"slowToggle", @"autoShot", @"autoSlow", @"leftHanded", @"haptics", @"smoothScaling", @"showPerformance", @"autoBomb", @"developerMode"];
+    NSArray *keys = @[@"controlsVisible", @"shotToggle", @"slowToggle", @"autoShot", @"autoSlow", @"leftHanded", @"haptics", @"smoothScaling", @"showPerformance", @"autoBomb", @"developerMode", @"dragAutoShot", @"alwaysShowHitbox", @"battleZoomEnabled"];
     BOOL value = control.tag == 0 ? !control.on : control.on;
     [self.owner setValue:@(value) forKey:keys[control.tag]];
     [NSUserDefaults.standardUserDefaults setBool:value forKey:keys[control.tag]];
@@ -1318,10 +1475,12 @@ uint64_t residentBytes() {
     [self.owner clearInput];
     for (NSString *key in @[@"autoBomb", @"developerMode"]) [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
     self.owner.autoBomb = self.owner.developerMode = NO; [self.owner syncCombatOptions];
-    for (NSString *key in @[@"shotToggle", @"slowToggle", @"controlsVisible", @"leftHanded", @"haptics", @"touchSensitivity", @"buttonOpacity", @"buttonSize", @"renderScale", @"controlMode", @"autoShot", @"autoSlow", @"joystickDeadzone", @"controlHeight", @"displayFPS", @"smoothScaling", @"showPerformance", @"customLayoutsV2"])
+    for (NSString *key in @[@"shotToggle", @"slowToggle", @"controlsVisible", @"leftHanded", @"haptics", @"touchSensitivity", @"buttonOpacity", @"buttonSize", @"renderScale", @"controlMode", @"autoShot", @"autoSlow", @"dragAutoShot", @"alwaysShowHitbox", @"battleZoomEnabled", @"battleZoom", @"joystickDeadzone", @"controlHeight", @"displayFPS", @"smoothScaling", @"showPerformance", @"customLayoutsV2"])
         [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
     self.owner.shotToggle = self.owner.slowToggle = self.owner.leftHanded = self.owner.haptics = NO;
     self.owner.autoShot = self.owner.autoSlow = self.owner.showPerformance = NO;
+    self.owner.dragAutoShot = self.owner.alwaysShowHitbox = self.owner.battleZoomEnabled = NO;
+    self.owner.battleZoom = 1;
     self.owner.controlsVisible = self.owner.smoothScaling = YES;
     self.owner.sensitivity = 1; self.owner.buttonOpacity = 0.55f; self.owner.buttonSize = 1; self.owner.renderScale = 1;
     self.owner.joystickDeadzone = 0.18f; self.owner.controlMode = 2; self.owner.controlHeight = 0; self.owner.displayFPS = 60;
@@ -1416,3 +1575,33 @@ void th20_ios_set_logical_size(int width, int height) {
 void th20_ios_clear_input(void) { onMain(^{ [host clearInput]; }); }
 
 void th20_ios_open_settings(void) { onMain(^{ [host openSettings]; }); }
+bool th20_ios_always_show_hitbox(void) {
+    TH20ViewController *controller = host;
+    return controller && controller.ready && controller.alwaysShowHitbox &&
+        controller.inputMode == TH20_IOS_INPUT_GAMEPLAY;
+}
+bool th20_ios_battle_camera(float *zoom, float *anchor_x, float *anchor_y) {
+    TH20ViewController *controller = host;
+    if (!controller || !controller.ready || !controller.battleZoomEnabled ||
+        controller.inputMode != TH20_IOS_INPUT_GAMEPLAY || !controller.combatScene) return false;
+    if (zoom) *zoom = controller.battleZoom;
+    float x = 224, y = 240; bool focused = false;
+    if (callbacks.player_anchor &&
+        (!callbacks.player_anchor(callbacks.userdata, &x, &y, &focused) ||
+         !std::isfinite(x) || !std::isfinite(y))) { x = 224; y = 240; }
+    if (anchor_x) *anchor_x = std::clamp((x - 224.f) / 192.f, -1.f, 1.f);
+    if (anchor_y) *anchor_y = std::clamp((240.f - y) / 224.f, -1.f, 1.f);
+    return true;
+}
+bool th20_ios_extended_battle_bounds(float *left, float *top, float *right, float *bottom) {
+    float zoom = 1, anchorX = 0, anchorY = 0;
+    if (!th20_ios_battle_camera(&zoom, &anchorX, &anchorY) || zoom >= 1.f) return false;
+    zoom = std::max(zoom, 0.1f);
+    const float centerX = (1.f - zoom) * anchorX * 192.f;
+    const float centerY = 224.f - (1.f - zoom) * anchorY * 224.f;
+    if (left) *left = centerX - 192.f / zoom;
+    if (right) *right = centerX + 192.f / zoom;
+    if (top) *top = centerY - 224.f / zoom;
+    if (bottom) *bottom = centerY + 224.f / zoom;
+    return true;
+}

@@ -78,7 +78,10 @@ extern "C" int th20_ios_mobile_settings_probe(){
     }
     if(phase==1){
         check([settings isKindOfClass:UITableViewController.class],"settings uses grouped scrolling table");if(!settings){phase=9;return -1;}
-        check([settings.tableView numberOfSections]==5,"control, layout, graphics, gesture and cheat sections present");
+        check([settings.tableView numberOfSections]==6,"control, layout, graphics, gesture, cheat and language sections present");
+        check([settings.tableView numberOfRowsInSection:0]==9 &&
+              [settings.tableView numberOfRowsInSection:2]==6,
+              "drag shooting, hitbox and battle zoom settings present");
         auto* modes=(UISegmentedControl*)find(settings.view,UISegmentedControl.class,0);
         check(modes.numberOfSegments==3&&[[modes titleForSegmentAtIndex:0] isEqualToString:@"Hybrid"],"Hybrid Drag Joystick selector present");
         for(NSInteger selected=0;selected<3;++selected){modes.selectedSegmentIndex=selected;[modes sendActionsForControlEvents:UIControlEventValueChanged];check([[owner valueForKey:@"controlMode"] integerValue]==2-selected,"mode action updates host");}

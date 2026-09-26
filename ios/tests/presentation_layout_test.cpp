@@ -41,6 +41,20 @@ void portrait(double width, double height, double top, double source_scale = 1) 
     check(near(boundary.x, 224 * source_scale) && near(boundary.y, 16 * source_scale), "header boundary belongs to gameplay");
 }
 int main(int argc, char** argv) {
+    for (const double scale : {0.5, 1.0, 2.0}) {
+        const auto portraitBattle = p::make_layout(390, 844, 640 * scale, 480 * scale, true, 47);
+        check(portraitBattle.count == 3 && near(portraitBattle.regions[0].source.width, 224 * scale) &&
+              near(portraitBattle.regions[1].source.width, 224 * scale), "portrait HUD source panels unchanged");
+        check(near(portraitBattle.regions[2].source.width, 384 * scale) &&
+              near(portraitBattle.regions[2].source.height, 448 * scale), "battle presentation keeps the native camera frame");
+        const p::Point player{120 * scale, 360 * scale};
+        const auto screen = portraitBattle.display_point(player);
+        const auto back = portraitBattle.logical_point(screen);
+        check(near(back.x, player.x) && near(back.y, player.y), "portrait touch and presentation agree");
+        const auto landscapeBattle = p::make_layout(1024, 768, 640 * scale, 480 * scale, true);
+        check(landscapeBattle.count == 1 && near(landscapeBattle.regions[0].source.width, 640 * scale),
+              "landscape retains complete native frame");
+    }
     for (const double source_scale : {0.5, 0.75, 1.0, 1.5, 2.0}) {
         portrait(768, 1024, 0, source_scale); portrait(390, 844, 47, source_scale);
         portrait(375, 667, 0, source_scale); portrait(834, 1194, 24, source_scale);

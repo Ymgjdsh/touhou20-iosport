@@ -7,6 +7,9 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_host.h"
+#endif
 namespace th20::source::gameplay {
 namespace {
 float subtract(float a,float b) noexcept{return _mm_cvtss_f32(_mm_sub_ss(_mm_set_ss(a),_mm_set_ss(b)));}
@@ -90,12 +93,19 @@ int update_enemy_movement(EnemyState& enemy,EnemyMovementServices& host) {
         enemy.vector_170.y=static_cast<float>(std::fabs(static_cast<double>(host.animation_width(*animation))));
     }
     const auto p=position(enemy.motion_110);const auto halfx=divide(enemy.vector_170.x,2),halfy=divide(enemy.vector_170.y,2);
+    bool keep_for_extended_view=false;
+#if defined(TH20_IOS)
+    float view_left,view_top,view_right,view_bottom;
+    if(th20_ios_extended_battle_bounds(&view_left,&view_top,&view_right,&view_bottom))
+        keep_for_extended_view=!(recovered::add32(p.x,halfx)<view_left||subtract(p.x,halfx)>view_right||
+            recovered::add32(p.y,halfy)<view_top||subtract(p.y,halfy)>view_bottom);
+#endif
     if(-192.0f>recovered::add32(p.x,halfx)||subtract(p.x,halfx)>192.0f) {
         enemy.fields_2c8[2]&=~0x40u;
-        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&4u))return -1;
+        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&4u)&&!keep_for_extended_view)return -1;
     } else if(0.0f>recovered::add32(p.y,halfy)||subtract(p.y,halfy)>448.0f) {
         enemy.fields_2c8[2]&=~0x40u;
-        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&8u))return -1;
+        if((enemy.fields_2c8[1]&1u)&&!(enemy.fields_2c8[0]&8u)&&!keep_for_extended_view)return -1;
     } else {enemy.fields_2c8[1]|=1u;enemy.fields_2c8[2]|=0x40u;}
     return 0;
 }

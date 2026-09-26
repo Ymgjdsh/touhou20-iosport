@@ -3,6 +3,10 @@
 #include "../sprite_renderer/anm_vm.hpp"
 #include "../sprite_renderer/binding.hpp"
 #include "../program_entry/program_entry.hpp"
+#include <algorithm>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_host.h"
+#endif
 namespace th20::source::bullet::unrecovered {
 namespace n=recovered;
 int advance_bullet_00485b60(Bullet& b){
@@ -52,7 +56,15 @@ after_movement:
         if(b.field_90&0x1000u)update_screen_wrap(b);
         if(!(b.field_90&0x100u)&&n::signed_bits(b.field_30)<1){
             auto& s=sprite::current_sprite(sprites,*b.animation);const auto w=div(n::mul32(s.extent_4c,b.scale),2),h=div(n::mul32(s.extent_48,b.scale),2);
-            if(n::add32(w,b.position.x)<=-192||b.position.x-w>=192||n::add32(h,b.position.y)<=-64||b.position.y-h>=448){retire(b);state::set_clock_scale(previous_rate);return -1;}
+            float left=-192,right=192,top=-64,bottom=448;
+#if defined(TH20_IOS)
+            float view_left,view_top,view_right,view_bottom;
+            if(th20_ios_extended_battle_bounds(&view_left,&view_top,&view_right,&view_bottom)){
+                left=std::min(left,view_left);right=std::max(right,view_right);
+                top=std::min(top,view_top-64.f);bottom=std::max(bottom,view_bottom);
+            }
+#endif
+            if(n::add32(w,b.position.x)<=left||b.position.x-w>=right||n::add32(h,b.position.y)<=top||b.position.y-h>=bottom){retire(b);state::set_clock_scale(previous_rate);return -1;}
         }
     }
     if(b.field_18)b.field_18=n::signed_bits(static_cast<std::uint32_t>(b.field_18)-1u);

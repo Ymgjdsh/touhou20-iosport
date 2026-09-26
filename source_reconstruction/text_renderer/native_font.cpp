@@ -140,11 +140,11 @@ void initialize_native_fonts(){
         if(fonts[index])continue;
         const bool mincho=(index>=13&&index<=17)||index>=20;
         const auto requested=th20::ios::language::effective()==2?
-            (mincho?CFSTR("SongtiSC-Bold"):CFSTR("PingFangSC-Regular")):
+            (mincho?CFSTR("SongtiSC-Regular"):CFSTR("PingFangSC-Regular")):
             (mincho?CFSTR("HiraMinProN-W6"):CFSTR("HiraginoSans-W3"));
         auto font=CTFontCreateWithName(requested,heights[index],nullptr);
         if(!font)throw std::runtime_error("Unable to load native Japanese typeface");
-        if(index==11){if(auto bold=CTFontCreateCopyWithSymbolicTraits(font,0,nullptr,kCTFontBoldTrait,kCTFontBoldTrait)){CFRelease(font);font=bold;}}
+        if(index==11&&th20::ios::language::effective()!=2){if(auto bold=CTFontCreateCopyWithSymbolicTraits(font,0,nullptr,kCTFontBoldTrait,kCTFontBoldTrait)){CFRelease(font);font=bold;}}
         CFHandle<CFStringRef> actual(CTFontCopyPostScriptName(font));char name[256]{};
         if(actual)CFStringGetCString(actual,name,sizeof name,kCFStringEncodingUTF8);
         th20_ios_log("text: native font slot=%u size=%d actual=%s",index,heights[index],name);

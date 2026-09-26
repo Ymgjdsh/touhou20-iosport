@@ -23,6 +23,7 @@ __pycache__/
 Thumbs.db
 .env
 .env.*
+ios/mac_build.local.psd1
 *.pem
 *.key
 /userdata/

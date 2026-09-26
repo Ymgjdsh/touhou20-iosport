@@ -16,6 +16,7 @@ for directory in ("ios", "source_reconstruction", "native_recovered", "include",
             continue
         if path.suffix.lower() in allowed or path.name == "memory_resource":
             files.append(path)
+files.extend(sorted((root / "ios" / "icons").glob("TH20Icon*.png")))
 output.parent.mkdir(parents=True, exist_ok=True)
 with tarfile.open(output, "w:gz") as archive:
     for path in files:
