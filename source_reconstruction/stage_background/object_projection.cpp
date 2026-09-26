@@ -4,6 +4,9 @@
 #include "../platform_window/directx_math.hpp"
 #include <cstring>
 #include <system_error>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_battle_camera.h"
+#endif
 namespace th20::source::background {
 namespace n=th20::recovered;namespace s=sprite;namespace dx=platform_window::directx;
 namespace {
@@ -21,6 +24,10 @@ struct ProjectionLibrary {
 ProjectionLibrary& sdk(){static ProjectionLibrary instance;return instance;}
 }
 int cull_object(const Object& object,const s::Vec3& instance,float squared_limit,const program_entry::ViewportState& camera){
+#if defined(TH20_IOS)
+    const auto& transform=th20::ios::camera::draw_transform;
+    if(transform.scale<1.f)squared_limit/=transform.scale*transform.scale;
+#endif
     const auto* p=object.parameters;const s::Vec3 center{p[5],p[6],p[7]};
     const s::Vec3 delta{sub(n::add32(center.x,instance.x),n::add32(camera.vectors[0][0],camera.vectors[5][0])),sub(n::add32(center.y,instance.y),n::add32(camera.vectors[0][1],camera.vectors[5][1])),sub(n::add32(center.z,instance.z),n::add32(camera.vectors[0][2],camera.vectors[5][2]))};
     const float square=n::add32(n::add32(n::mul32(delta.x,delta.x),n::mul32(delta.y,delta.y)),n::mul32(delta.z,delta.z));if(square>squared_limit)return 1;
@@ -29,7 +36,14 @@ int cull_object(const Object& object,const s::Vec3& instance,float squared_limit
     for(unsigned i=0;i<8;++i)corners[i]={(i&4)?sub(center.x,half.x):n::add32(center.x,half.x),(i&2)?sub(center.y,half.y):n::add32(center.y,half.y),(i&1)?sub(center.z,half.z):n::add32(center.z,half.z)};
     corners[8]={center.x,sub(center.y,half.y),sub(center.z,half.z)};corners[9]={center.x,n::add32(center.y,half.y),sub(center.z,half.z)};corners[10]={center.x,sub(center.y,half.y),n::add32(center.z,half.z)};corners[11]={center.x,n::add32(center.y,half.y),n::add32(center.z,half.z)};
     corners[12]={center.x,sub(center.y,half.y),center.z};corners[13]={center.x,n::add32(center.y,half.y),center.z};corners[14]={center.x,sub(center.y,half.y),sub(center.z,div(half.z,2.f))};corners[15]={center.x,n::add32(center.y,half.y),n::add32(div(half.z,2.f),center.z)};
-    D3DMATRIX world;sdk().translation(&world,instance.x,instance.y,instance.z);sdk().project(projected,12,corners,12,&camera.viewport,&camera.projection,&camera.view,&world,16);
+    D3DMATRIX world;sdk().translation(&world,instance.x,instance.y,instance.z);
+    auto projection=camera.projection;
+#if defined(TH20_IOS)
+    // Visibility uses the same camera as the GPU, while the stored projection
+    // remains unmodified so CPU-projected billboards are not scaled twice.
+    if(!transform.identity())transform.project(projection.m);
+#endif
+    sdk().project(projected,12,corners,12,&camera.viewport,&projection,&camera.view,&world,16);
     const float x=unsigned_float(camera.viewport.X),y=unsigned_float(camera.viewport.Y);float left=n::add32(n::add32(n::add32(640.f,0.f),8.f),x),top=n::add32(n::add32(n::add32(480.f,0.f),8.f),y),right=n::add32(sub(0.f,8.f),x),bottom=n::add32(sub(0.f,8.f),y);
     for(const auto& point:projected){if(point.z<0.f||point.z>1.f)continue;if(point.x<left)left=point.x;if(right<point.x)right=point.x;if(point.y<top)top=point.y;if(bottom<point.y)bottom=point.y;}
     return n::add32(x,0.f)<=right&&left<=n::add32(n::add32(640.f,0.f),x)&&n::add32(y,0.f)<=bottom&&top<=n::add32(n::add32(0.f,480.f),y)?0:1;
@@ -42,4 +56,3 @@ void update_perspective_camera(program_entry::ViewportState& camera){
     const float length=ecl::math::square_root(n::add32(n::add32(n::mul32(cross.x,cross.x),n::mul32(cross.y,cross.y)),n::mul32(cross.z,cross.z)));if(length>=.01f){cross.x=div(cross.x,length);cross.y=div(cross.y,length);cross.z=div(cross.z,length);}std::memcpy(camera.vectors[4],&cross,12);
 }
 }
-

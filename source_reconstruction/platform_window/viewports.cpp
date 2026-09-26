@@ -6,6 +6,7 @@
 #include <emmintrin.h>
 #if defined(TH20_IOS)
 #include "../../ios/src/ios_host.h"
+#include "../../ios/src/ios_battle_camera.h"
 #endif
 
 namespace th20::source::platform_window {
@@ -43,24 +44,20 @@ void update_camera(program_entry::ViewportState& v,const D3DVIEWPORT9& rectangle
     directx::perspective(v.projection,v.field_of_view,
         div(from_unsigned(rectangle.Width),from_unsigned(rectangle.Height)),1.0f,data::value_00571ea0);
 }
-void apply_ios_battle_camera(D3DMATRIX& projection) {
+void select_ios_battle_camera(const program_entry::ViewportState& viewport,bool enabled,bool padded) {
 #if defined(TH20_IOS)
+    auto& transform=th20::ios::camera::draw_transform;
+    transform={};
     float zoom=1, anchor_x=0, anchor_y=0;
-    if(!th20_ios_battle_camera(&zoom,&anchor_x,&anchor_y)||!std::isfinite(zoom)||zoom==1.f)return;
-    zoom=std::clamp(zoom,.1f,3.f);
-    auto center=[zoom](float anchor) {
-        if(zoom<1.f)return (1.f-zoom)*anchor;
-        const float limit=1.f-1.f/zoom;
-        return std::clamp(anchor,-limit,limit);
-    };
-    const float shift_x=-zoom*center(anchor_x),shift_y=-zoom*center(anchor_y);
-    for(unsigned row=0;row<4;++row){
-        const float w=projection.m[row][3];
-        projection.m[row][0]=zoom*projection.m[row][0]+shift_x*w;
-        projection.m[row][1]=zoom*projection.m[row][1]+shift_y*w;
-    }
+    if(!enabled||!th20_ios_battle_camera(&zoom,&anchor_x,&anchor_y))return;
+    const auto& v=viewport.adjusted_viewport;
+    // Intermediate 416x480 canvases have a 16px border around the 384x448
+    // battlefield. Other world viewports cover that battlefield directly.
+    const float rx=padded&&v.Width>32?float(v.Width-32)/v.Width:1.f;
+    const float ry=padded&&v.Height>32?float(v.Height-32)/v.Height:1.f;
+    transform=th20::ios::camera::make(zoom,anchor_x,anchor_y,rx,ry);
 #else
-    (void)projection;
+    (void)viewport;(void)enabled;(void)padded;
 #endif
 }
 void set_render_offsets(GraphicsStatePrefix& g,int x,int y) {

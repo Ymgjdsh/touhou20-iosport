@@ -52,7 +52,7 @@ void center_render_viewports();                // 4dbce0
 void initialize_render_viewports(GraphicsStatePrefix&); // 4daba0
 void set_render_offsets(GraphicsStatePrefix&,int x,int y); // 4ddb20
 void update_camera(program_entry::ViewportState&,const D3DVIEWPORT9&); // 4da1f0
-void apply_ios_battle_camera(D3DMATRIX&); // iOS-only visual projection; no simulation state
+void select_ios_battle_camera(const program_entry::ViewportState&,bool enabled,bool padded=false);
 int shutdown_graphics();                   // 4dd490, explicit unrecovered domains above
 void apply_camera(program_entry::ViewportState&); // 4da120
 void select_viewport(GraphicsStatePrefix&,int); // 41dce0

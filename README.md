@@ -52,7 +52,7 @@ Settings provide `Hybrid`, `Drag`, and `Joystick` movement modes, a `No Button` 
 - Four-finger pinch during gameplay: adjust the native battlefield camera from 0.1× to 3× without scaling the HUD (when enabled)
 - Two-finger tap in menus: back
 
-Zooming out extends the offscreen lifetime of enemies and bullets to the visible camera bounds. Changing zoom while recording or playing a replay can affect replay consistency.
+Battle zoom scales the player, enemies, bullets, lasers, effects, and background together while the HUD keeps its original size. Zooming out reveals world geometry beyond the original viewport and extends the offscreen lifetime of enemies and bullets to the visible camera bounds. The available scenery still depends on the stage's original geometry. Changing zoom while recording or playing a replay can affect replay consistency.
 
 ## Developer menu and Auto Bomb
 
@@ -146,7 +146,7 @@ bash ios/build_ios.sh
 - 开启缩放后，战斗中四指张合：在 0.1–3 倍间调整原生战斗视野，计分栏保持原大小
 - 菜单中双指轻按：返回
 
-缩小视野时，敌机和子弹会在扩展的可见范围内继续存在。录制或播放回放时更改缩放倍率，可能影响回放一致性。
+战斗缩放会同时缩放自机、敌机、子弹、激光、特效和背景，计分栏保持原大小。缩小时会显示原视口之外的场景，敌机和子弹也会在扩展的可见范围内继续存在；可显示的背景内容仍取决于关卡原有模型。录制或播放回放时更改缩放倍率，可能影响回放一致性。
 
 ## 开发者菜单与自动符卡
 

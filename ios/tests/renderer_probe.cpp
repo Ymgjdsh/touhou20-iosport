@@ -2,6 +2,7 @@
 // Call with UIKit host initialized and EAGL context current on the main thread.
 #include <d3d9.h>
 #include "ios_host.h"
+#include "ios_battle_camera.h"
 #include <d3dx9.h>
 #include <OpenGLES/ES3/gl.h>
 #include <algorithm>
@@ -243,6 +244,51 @@ extern "C" int th20_ios_renderer_probe() {
     clear(0x404080c0);
     device->Present(nullptr, nullptr, nullptr, nullptr);
     check("Present preserves game FBO RGB and alpha", {64, 128, 192, 64});
+    // Reproduce the 0.4.2 regression: the game uses XYZRHW for the player,
+    // bullets, lasers and items. Matrix-only zoom changed XYZ backgrounds but
+    // left those vertices untouched. Check actual rendered pixels on both paths.
+    namespace camera=th20::ios::camera;
+    device->SetRenderTarget(0,render_surface);
+    state(7,0);state(27,0);state(D3DRS_ALPHATESTENABLE,0);state(D3DRS_FOGENABLE,0);
+    diffuse();view=identity();projection=identity();auto world=identity();
+    device->SetTransform(D3DTS_WORLD,&world);device->SetTransform(D3DTS_VIEW,&view);
+    device->SetTransform(D3DTS_PROJECTION,&projection);
+    auto sprite_box=[&](float left,float right,float top,float bottom){
+        const ScreenVertex v[]{{left-.5f,top-.5f,.5f,1,0xffff0000,0,0},{right-.5f,top-.5f,.5f,1,0xffff0000,1,0},
+            {left-.5f,bottom-.5f,.5f,1,0xffff0000,0,1},{right-.5f,bottom-.5f,.5f,1,0xffff0000,1,1}};
+        device->SetFVF(D3DFVF_XYZRHW|D3DFVF_DIFFUSE|D3DFVF_TEX1);
+        device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP,2,v,sizeof(ScreenVertex));
+    };
+    auto world_box=[&](float left,float right,float top,float bottom){
+        const Vertex v[]{{left/64-1,1-top/64,.5f,0xffff0000},{right/64-1,1-top/64,.5f,0xffff0000},
+            {left/64-1,1-bottom/64,.5f,0xffff0000},{right/64-1,1-bottom/64,.5f,0xffff0000}};
+        device->SetFVF(D3DFVF_XYZ|D3DFVF_DIFFUSE);
+        device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP,2,v,sizeof(Vertex));
+    };
+    camera::draw_transform=camera::make(2,0,0);
+    clear(0xff000000);sprite_box(48,80,48,80);
+    check("2x enlarges pretransformed player and bullet sprites",{255,0,0,255},40,64);
+    check("2x sprite edge is not scaled twice",{0,0,0,255},20,64);
+    clear(0xff000000);world_box(48,80,48,80);
+    check("2x background matches sprite scale",{255,0,0,255},40,64);
+    check("2x background edge is not scaled twice",{0,0,0,255},20,64);
+    camera::draw_transform=camera::make(3,0,0);
+    clear(0xff000000);sprite_box(48,80,48,80);
+    check("3x applies to pretransformed geometry",{255,0,0,255},24,64);
+    camera::draw_transform=camera::make(.1f,0,0);
+    clear(0xff000000);sprite_box(320,448,0,128);
+    check("0.1x reveals sprites outside the original viewport",{255,0,0,255},96,64);
+    clear(0xff000000);world_box(320,448,0,128);
+    check("0.1x reveals background geometry outside the original viewport",{255,0,0,255},96,64);
+    camera::draw_transform={};clear(0xff000000);sprite_box(48,80,48,80);
+    check("HUD keeps its original size after leaving world camera",{0,0,0,255},40,64);
+    check("HUD remains visible in original position",{255,0,0,255},64,64);
+    camera::draw_transform=camera::make(2,0,0);clear(0xff000000);sprite_box(48,80,48,80);
+    device->SetRenderTarget(0,backbuffer);clear(0xff000000);
+    texture(render_texture);rectangle(0,128,0xffffffff);
+    check("composite retains expanded sprite from world target",{255,0,0,255},40,64);
+    check("composite does not apply world zoom a second time",{0,0,0,255},20,64);
+    camera::draw_transform={};
     finish_results(passed, total);
     device->SetTexture(0,nullptr);uploaded->Release();render_surface->Release();render_texture->Release();backbuffer->Release();device->Release();device=nullptr;api->Release();
     return passed == total ? 0 : 1;

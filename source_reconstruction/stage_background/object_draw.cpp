@@ -20,13 +20,17 @@ RotationLibrary& sdk(){static RotationLibrary value;return value;}
 s::SpriteData* optional_sprite(s::Animation& a){const auto& file=*e::controller().files[a.base.fields_10_28[3]];return reinterpret_cast<s::SpriteData*>(reinterpret_cast<std::uintptr_t>(file.sprites)+a.base.fields_10_28[4]*sizeof(s::SpriteData));}
 }
 void select_background_viewport(pe::GraphicsStatePrefix& graphics,int index){auto& camera=graphics.viewports[index];graphics.current_viewport=&camera;platform_window::update_camera(camera,camera.viewport);update_perspective_camera(camera);
+    graphics.device->SetViewport(&camera.adjusted_viewport);
 #if defined(TH20_IOS)
-    platform_window::apply_ios_battle_camera(camera.projection);
-    graphics.device->SetTransform(D3DTS_PROJECTION,&camera.projection);
+    platform_window::select_ios_battle_camera(camera,true,true);
 #endif
-    graphics.device->SetViewport(&camera.adjusted_viewport);auto& c=*pe::sprite_controller;const float x=n::int_float(camera.offset_x),y=n::int_float(camera.offset_y);std::memcpy(c.fields_c8+2,&x,4);std::memcpy(c.fields_c8+3,&y,4);graphics.field_0b04=0;std::memcpy(c.fields_c8,camera.points[2],8);}
+    auto& c=*pe::sprite_controller;const float x=n::int_float(camera.offset_x),y=n::int_float(camera.offset_y);std::memcpy(c.fields_c8+2,&x,4);std::memcpy(c.fields_c8+3,&y,4);graphics.field_0b04=0;std::memcpy(c.fields_c8,camera.points[2],8);}
 void reset_sprite_draw_cache(s::Controller& c) noexcept {c.unknown_cached_e0e=0xff;c.field_e18=0;c.cached_texture=0xffffffffu;c.unknown_cached_e0d=0xff;c.blend_mode=11;c.field_e0f=0xff;c.field_b8=c.field_bc=c.field_c0=c.draw_calls=0;c.unknown_cached_e10=0xff;c.field_7d40e90=0;c.field_7d40e8c=0x80808080u;reinterpret_cast<std::uint8_t*>(&c.field_00)[0]=0xff;c.fields_c8[0]=c.fields_c8[1]=0;}
-void draw_embedded_layer(ScriptState& state,int layer){for(unsigned i=0;i<8;++i){auto& a=state.animations[i];if(optional_sprite(a)&&state.fields_3294[i]==static_cast<std::uint32_t>(layer)){platform_window::select_viewport(pe::graphics_state,3);e::disable_fog();s::flush_textured_quads(e::controller(),e::device());e::disable_depth_write();if(optional_sprite(a))s::draw_animation(e::controller(),a);e::enable_depth_write();select_background_viewport(pe::graphics_state,3);}}}
+void draw_embedded_layer(ScriptState& state,int layer){for(unsigned i=0;i<8;++i){auto& a=state.animations[i];if(optional_sprite(a)&&state.fields_3294[i]==static_cast<std::uint32_t>(layer)){platform_window::select_viewport(pe::graphics_state,3);
+#if defined(TH20_IOS)
+    platform_window::select_ios_battle_camera(pe::graphics_state.viewports[3],true,true);
+#endif
+    e::disable_fog();s::flush_textured_quads(e::controller(),e::device());e::disable_depth_write();if(optional_sprite(a))s::draw_animation(e::controller(),a);e::enable_depth_write();select_background_viewport(pe::graphics_state,3);}}}
 void draw_object_layer(Background& background,int layer){
     auto& c=e::controller();auto& device=e::device();draw_embedded_layer(background.state,layer);s::flush_textured_quads(c,device);e::enable_fog();select_background_viewport(pe::graphics_state,3);c.unknown_cached_e10=1;
     for(auto* instance=background.instances;static_cast<std::int16_t>(instance->object_id)>=0;++instance){auto& object=*background.objects[instance->object_id];if(static_cast<std::int8_t>(object.layer)!=layer)continue;

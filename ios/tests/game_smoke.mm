@@ -35,6 +35,9 @@ int musicPhase=0;
 int orientationPhase=0;
 double orientationDeadline=0;
 bool orientationPassed=false;
+int cameraStep=0,cameraReadyFrame=0;
+double cameraDeadline=0;
+bool cameraPending=false;
 void requestOrientation(UIInterfaceOrientationMask orientation){
     UIWindowScene* scene=UIApplication.sharedApplication.keyWindow.windowScene;
     if(@available(iOS 16.0,*)){
@@ -84,7 +87,8 @@ void tick(){
         return;
     }
     const bool developerProbe=std::getenv("TH20_DEV_PROBE")!=nullptr;
-    if(developerProbe){settingsStarted=settingsPassed=true;musicPhase=4;}
+    const bool cameraProbe=std::getenv("TH20_CAMERA_PROBE")!=nullptr;
+    if(developerProbe||cameraProbe){settingsStarted=settingsPassed=true;musicPhase=4;}
     if(settingsStarted&&!settingsPassed){
         const int result=th20_ios_mobile_settings_probe();
         if(result<0){finish(false,"mobile settings probe failed",-1);return;}
@@ -125,6 +129,31 @@ void tick(){
     if(scene!=7||!gameplay::controller)return;
     auto* player=static_cast<th20::source::player_entity::Player*>(th20::source::game_session::context(0).objects_04[0]);
     const int frame=gameplay::controller->frame_timer.current;
+    if(cameraProbe){
+        UIViewController* owner=UIApplication.sharedApplication.keyWindow.rootViewController;
+        if([[owner valueForKey:@"inputMode"] integerValue]!=TH20_IOS_INPUT_GAMEPLAY){
+            if(now-lastAction>1)press(0);
+            return;
+        }
+        if(frame<180||now<cameraDeadline)return;
+        const float zooms[]{1,2,.5f,.1f,3};
+        const char* names[]{"camera-1x","camera-2x","camera-0_5x","camera-0_1x","camera-3x"};
+        if(cameraStep==5){finish(true,"native battle camera screenshots captured at five zoom levels",frame);return;}
+        if(!cameraPending){
+            [owner setValue:@YES forKey:@"battleZoomEnabled"];
+            [owner setValue:@YES forKey:@"autoShot"];
+            [owner setValue:@YES forKey:@"alwaysShowHitbox"];
+            [owner setValue:@(zooms[cameraStep]) forKey:@"battleZoom"];
+            cameraReadyFrame=frame+8;cameraPending=true;return;
+        }
+        if(frame<cameraReadyFrame)return;
+        float actual=0,ax=0,ay=0;
+        if(!th20_ios_battle_camera(&actual,&ax,&ay)||actual!=zooms[cameraStep]){
+            finish(false,"battle camera setting did not reach renderer",frame);return;
+        }
+        milestone(names[cameraStep]);th20_ios_log("SMOKE camera=%g stage_frame=%d",actual,frame);
+        ++cameraStep;cameraPending=false;cameraDeadline=now+3;return;
+    }
     if(developerProbe){
         const int result=th20_ios_dev_probe();
         if(result)finish(result>0,"developer menu and collision autobomb probe",frame);
@@ -167,7 +196,7 @@ void tick(){
 @end
 @implementation TH20NativeSmokeDriver
 + (void)load {
-    if(std::getenv("TH20_LANGUAGE_PROBE")){
+    if(std::getenv("TH20_LANGUAGE_PROBE")||std::getenv("TH20_CAMERA_PROBE")){
         [NSUserDefaults.standardUserDefaults removeObjectForKey:@"gameLanguage"];
         // Software GLES on Intel needs a smaller output surface; game logic
         // and resource/font loading still execute the production paths.

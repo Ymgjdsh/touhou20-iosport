@@ -30,7 +30,7 @@ bool initialize(void *, const char *resources, const char *documents) {
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) return false;
     UIWindow *window = UIApplication.sharedApplication.keyWindow;
     UILabel *notice = [UILabel new]; label = notice;
-    notice.text = @"TH20 PLATFORM DIAGNOSTICS\nNot a playable game\nRenderer: 27/27 pixel checks passed\nChecking native 60 Hz host…";
+    notice.text = @"TH20 PLATFORM DIAGNOSTICS\nNot a playable game\nRenderer pixel checks passed\nChecking native 60 Hz host…";
     notice.numberOfLines = 0; notice.textColor = UIColor.whiteColor;
     notice.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     notice.textAlignment = NSTextAlignmentCenter; notice.userInteractionEnabled = NO;

@@ -8,6 +8,9 @@
 #include <cstring>
 #include <new>
 #include <emmintrin.h>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_battle_camera.h"
+#endif
 #if defined(TH20_WEB)
 #include <emscripten/emscripten.h>
 #endif
@@ -53,6 +56,9 @@ int __cdecl composite_mask(void*) { // 4dc8b0
     auto& g=graphics();
     if(g.resource_019c) {
         set_render_state(g,D3DRS_ZFUNC,8);flush();
+#if defined(TH20_IOS)
+        th20::ios::camera::draw_transform={}; // The surface mask is not world geometry.
+#endif
         const struct {D3DRENDERSTATETYPE state;DWORD value;} states[]={
             {D3DRS_ALPHATESTENABLE,0},{D3DRS_SEPARATEALPHABLENDENABLE,1},
             {D3DRS_SRCBLEND,1},{D3DRS_DESTBLEND,2},{D3DRS_BLENDOP,1},

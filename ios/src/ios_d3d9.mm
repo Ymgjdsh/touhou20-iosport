@@ -7,6 +7,7 @@
 #include <d3d9.h>
 #undef BOOL
 #include "ios_host.h"
+#include "ios_battle_camera.h"
 #include <OpenGLES/ES3/gl.h>
 #include <limits>
 #include <set>
@@ -321,6 +322,7 @@ void main(){
     UINT target_height()const{return render_target?render_target->height:(presentation.BackBufferHeight?presentation.BackBufferHeight:480);}
     HRESULT SetRenderTarget(DWORD index,IDirect3DSurface9* surface)override{
         if(index)return E_INVALIDARG;auto* next=dynamic_cast<NativeSurface*>(surface);if(surface&&!next)return E_INVALIDARG;if(next)next->AddRef();if(render_target)render_target->Release();render_target=next;
+        th20::ios::camera::draw_transform={};
         glBindFramebuffer(GL_FRAMEBUFFER,render_target?render_target->framebuffer():current_backbuffer);
         // D3D9 resets the viewport whenever render target 0 changes.
         const D3DVIEWPORT9 full{0,0,render_target?render_target->width:(presentation.BackBufferWidth?presentation.BackBufferWidth:640),target_height(),0,1};return SetViewport(&full);
@@ -414,6 +416,10 @@ void main(){
         }
         // D3D9 pixel centers are at integers; OpenGL ES's are at half integers.
         if(!rhw){output.x+=output.w/viewport.Width;output.y-=output.w/viewport.Height;}
+        // XYZRHW sprites bypass D3D projection matrices. Both those sprites
+        // and XYZ geometry must share this final camera transform exactly once.
+        const auto& camera=th20::ios::camera::draw_transform;
+        if(!camera.identity())camera.apply(output.x,output.y,output.w);
         // Keep texture row zero at the D3D top edge, including render textures.
         if(offscreen())output.y=-output.y;
     }

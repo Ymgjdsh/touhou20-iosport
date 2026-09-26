@@ -24,11 +24,11 @@ void select_viewport(GraphicsStatePrefix& graphics,int index) { // 41dce0
     auto& viewport=graphics.viewports[index];
     graphics.current_viewport=&viewport;
     update_camera(viewport,viewport.viewport);
-#if defined(TH20_IOS)
-    if(index==1||index==5)apply_ios_battle_camera(viewport.projection);
-#endif
     apply_camera(viewport);
     graphics.device->SetViewport(&viewport.adjusted_viewport);
+#if defined(TH20_IOS)
+    select_ios_battle_camera(viewport,index==0||index==1||index==5,index==0);
+#endif
     auto& controller=*pe::sprite_controller;
     assign_float(controller.fields_c8[2],from_signed(viewport.offset_x));
     assign_float(controller.fields_c8[3],from_signed(viewport.offset_y));

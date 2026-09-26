@@ -5,15 +5,18 @@
 #include "projected_draw.hpp"
 #include "../platform_window/graphics_callbacks.hpp"
 #include <cstring>
+#if defined(TH20_IOS)
+#include "../../ios/src/ios_battle_camera.h"
+#endif
 namespace th20::source::sprite {
 namespace pe=program_entry;
 void select_layer_viewport(pe::GraphicsStatePrefix& graphics,int index) {
     auto& viewport=graphics.viewports[index];graphics.current_viewport=&viewport;
     platform_window::update_camera(viewport,viewport.adjusted_viewport);
-#if defined(TH20_IOS)
-    if(index==0||index==1||index==5)platform_window::apply_ios_battle_camera(viewport.projection);
-#endif
     platform_window::apply_camera(viewport);graphics.device->SetViewport(&viewport.adjusted_viewport);
+#if defined(TH20_IOS)
+    platform_window::select_ios_battle_camera(viewport,index==0||index==1||index==5,index==0);
+#endif
     auto& c=*pe::sprite_controller;
     const float x=_mm_cvtss_f32(_mm_cvtsi32_ss(_mm_setzero_ps(),viewport.offset_x));
     const float y=_mm_cvtss_f32(_mm_cvtsi32_ss(_mm_setzero_ps(),viewport.offset_y));
@@ -33,7 +36,18 @@ void set_render_state(std::uint32_t state,std::uint32_t value){platform_window::
 namespace draw_environment {
 Controller& controller(){return *pe::sprite_controller;}
 IDirect3DDevice9& device(){return *pe::graphics_state.device;}
-const float* viewport_bounds(){return pe::graphics_state.current_viewport->bounds;}
+const float* viewport_bounds(){
+    auto& camera=*pe::graphics_state.current_viewport;
+#if defined(TH20_IOS)
+    const auto& transform=th20::ios::camera::draw_transform;
+    if(!transform.identity()){
+        static float expanded[4];const auto& v=camera.adjusted_viewport;
+        transform.source_bounds(camera.bounds,float(v.X),float(v.Y),float(v.Width),float(v.Height),expanded);
+        return expanded;
+    }
+#endif
+    return camera.bounds;
+}
 pe::ViewportState& current_camera(){return *pe::graphics_state.current_viewport;}
 std::int32_t scaled_dimension(unsigned axis){return axis?pe::window_state.scaled_height:pe::window_state.scaled_width;}
 void enable_fog(){auto& g=pe::graphics_state;if(g.render_value!=1){flush_textured_quads(*pe::sprite_controller,*g.device);g.render_value=1;g.device->SetRenderState(D3DRS_FOGENABLE,1);}}
